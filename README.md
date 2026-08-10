@@ -198,6 +198,11 @@ Entrá a `/admin/login`. A diferencia del panel de cliente:
   configurado (Vercel Blob o S3 serían el paso siguiente).
 - Tiene un botón "**Sincronizar con Notion**" que dispara manualmente la
   sync reversa (ver abajo) — sin cron todavía.
+- Tiene una sección **"Clientes"** (nav del sidebar) para dar de alta
+  distribuidoras nuevas: nombre, email, contraseña inicial. Valida email,
+  contraseña mínima (6 caracteres) y que no exista ya ese email. El cliente
+  creado ahí puede loguearse de inmediato en `/login` con la contraseña que
+  le pusiste — no hace falta ningún paso más.
 
 ## Emails
 
