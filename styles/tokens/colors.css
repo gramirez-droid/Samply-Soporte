@@ -1,0 +1,67 @@
+/* Samply — Color tokens
+   Professional, operational B2B palette. Navy + blue, restrained accents.
+   Base values first, then semantic aliases. */
+
+:root {
+  /* ---- Brand / base palette ---- */
+  --samply-navy:        #0D1B4B; /* Primary Dark Navy — main text, headers, sidebar */
+  --samply-blue:        #1565C0; /* Primary Blue — buttons, CTAs, table headers */
+  --samply-blue-light:  #42A5F5; /* Light Blue / Accent — logo bars, badges, AI */
+  --samply-sky:         #6DA8DA; /* Section-banner blue (= logo medium bar). Signature product band */
+  --samply-sky-soft:    #8FC0E8; /* lighter sky — mobile top bar / pressed banner */
+  --samply-bg:          #F4F8FF; /* App background, very lightly blue */
+  --samply-white:       #FFFFFF; /* Surface — cards, tables, modals */
+  --samply-border:      #E0E8F0; /* Subtle separators, input borders */
+  --samply-green:       #27AE60; /* Success — positive states, active badges */
+  --samply-red:         #E53935; /* Alert — errors, cancellations */
+  --samply-text-2:      #5F7D9C; /* Secondary text — subtitles, labels, support */
+
+  /* ---- Derived tints / shades ---- */
+  --samply-blue-hover:  #114E96; /* primary button hover (darker) */
+  --samply-blue-press:  #0E417D; /* primary button active */
+  --samply-blue-50:     #E3F2FD; /* badge / pill background (light blue) */
+  --samply-blue-100:    #D2E7FB; /* hovered chip / subtle fill */
+  --samply-navy-700:    #1B2C66; /* sidebar hover / raised navy surface */
+  --samply-navy-600:    #25387A; /* sidebar active item */
+  --samply-green-50:    #E6F6EE; /* success badge background */
+  --samply-red-50:      #FDECEA; /* error badge background */
+  --samply-amber:       #E69500; /* warning accent (derived, harmonized) */
+  --samply-amber-50:    #FDF3E0; /* warning badge background */
+
+  /* ---- Semantic aliases ---- */
+  --color-bg:            var(--samply-bg);
+  --color-surface:       var(--samply-white);
+  --color-surface-2:     #FAFCFF;        /* very subtle raised / zebra row */
+  --color-border:        var(--samply-border);
+  --color-border-strong: #C9D6E5;
+
+  --text-primary:        var(--samply-navy);
+  --text-secondary:      var(--samply-text-2);
+  --text-on-brand:       var(--samply-white);
+  --text-link:           var(--samply-blue);
+
+  --color-primary:       var(--samply-blue);
+  --color-primary-hover: var(--samply-blue-hover);
+  --color-primary-press: var(--samply-blue-press);
+  --color-accent:        var(--samply-blue-light);
+
+  --surface-sidebar:     var(--samply-navy);
+  /* Signature full-width section band over tables/cards. Sky = default, Navy = emphasis pair. */
+  --surface-banner:      var(--samply-sky);
+  --surface-banner-navy: var(--samply-navy);
+  /* Table COLUMN header row is light with dark text (per real product), not a dark fill. */
+  --surface-table-head:  #EAF1FA;
+  --surface-row-hover:   var(--color-surface-2);
+  --surface-row-selected:#DCEAF8;
+
+  --color-success:       var(--samply-green);
+  --color-danger:        var(--samply-red);
+  --color-warning:       var(--samply-amber);
+
+  /* AI / agent elements use the light-blue accent */
+  --color-ai:            var(--samply-blue-light);
+  --color-ai-bg:         var(--samply-blue-50);
+
+  /* focus ring */
+  --focus-ring:          0 0 0 3px rgba(21, 101, 192, 0.25);
+}

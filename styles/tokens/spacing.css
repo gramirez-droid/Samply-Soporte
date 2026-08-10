@@ -1,0 +1,48 @@
+/* Samply — Spacing, radius, shadow, layout tokens
+   4px base grid. Soft radii, restrained shadows (no aggressive elevation). */
+
+:root {
+  /* spacing scale (4px base) */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+
+  /* radius — soft. 8px cards, 4px buttons/inputs */
+  --radius-sm:   4px;   /* buttons, inputs, chips */
+  --radius-md:   8px;   /* cards, modals, panels */
+  --radius-lg:   12px;  /* large containers */
+  --radius-pill: 999px; /* badges, pills, avatars */
+
+  /* borders */
+  --border-width: 1px; /* @kind spacing */
+  --border:        var(--border-width) solid var(--color-border);
+  --border-strong: var(--border-width) solid var(--color-border-strong);
+
+  /* shadows — subtle, never aggressive */
+  --shadow-xs: 0 1px 2px rgba(13, 27, 75, 0.06);
+  --shadow-sm: 0 1px 3px rgba(13, 27, 75, 0.08), 0 1px 2px rgba(13, 27, 75, 0.04);
+  --shadow-md: 0 4px 12px rgba(13, 27, 75, 0.10);
+  --shadow-lg: 0 12px 32px rgba(13, 27, 75, 0.14);
+  --shadow-focus: var(--focus-ring);
+
+  /* layout */
+  --sidebar-width:        240px;
+  --sidebar-width-collapsed: 64px;
+  --topbar-height:        60px;
+  --container-max:        1280px;
+
+  /* motion — quick, functional, no bounce */
+  --ease-out:   cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1); /* @kind other */
+  --dur-fast:   120ms; /* @kind other */
+  --dur-base:   180ms; /* @kind other */
+  --dur-slow:   260ms; /* @kind other */
+}

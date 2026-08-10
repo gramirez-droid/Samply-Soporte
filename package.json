@@ -1,0 +1,29 @@
+{
+  "name": "samply-soporte",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:migrate": "node -r dotenv/config db/migrate.mjs",
+    "db:seed": "node -r dotenv/config db/seed.mjs",
+    "db:seed:manuales": "node -r dotenv/config db/seed_manuales.mjs",
+    "db:seed:agentes": "node -r dotenv/config db/seed_agentes.mjs"
+  },
+  "dependencies": {
+    "next": "14.2.35",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "pg": "8.12.0",
+    "bcryptjs": "2.4.3",
+    "jose": "5.9.6",
+    "resend": "6.18.1"
+  },
+  "devDependencies": {
+    "eslint": "8.57.0",
+    "eslint-config-next": "14.2.15",
+    "dotenv": "16.4.5"
+  }
+}
