@@ -5,9 +5,13 @@ import { Sidebar } from '@/components/ds/Sidebar';
 import { Avatar } from '@/components/ds/Avatar';
 import { Icon } from '@/components/ds/Icon';
 
-const NAV = [{ id: 'tickets', label: 'Tickets', icon: 'message' }];
+const NAV = [
+  { id: 'tickets', label: 'Tickets', icon: 'message' },
+  { id: 'clientes', label: 'Clientes', icon: 'users' },
+  { id: 'manuales', label: 'Centro de ayuda', icon: 'download' },
+];
 
-export function AdminShell({ agenteNombre, children }) {
+export function AdminShell({ agenteNombre, active, onSelect, children }) {
   const [expanded, setExpanded] = React.useState(true);
   const router = useRouter();
 
@@ -45,8 +49,8 @@ export function AdminShell({ agenteNombre, children }) {
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar
         items={NAV}
-        active="tickets"
-        onSelect={() => {}}
+        active={active}
+        onSelect={onSelect}
         expanded={expanded}
         onToggleExpand={() => setExpanded((e) => !e)}
         logoSrc={expanded ? '/logos/samply-logo-reversed.png' : '/logos/samply-mark.png'}

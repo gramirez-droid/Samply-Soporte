@@ -203,6 +203,12 @@ Entrá a `/admin/login`. A diferencia del panel de cliente:
   contraseña mínima (6 caracteres) y que no exista ya ese email. El cliente
   creado ahí puede loguearse de inmediato en `/login` con la contraseña que
   le pusiste — no hace falta ningún paso más.
+- Tiene una sección **"Centro de ayuda"** para cargar manuales sin tocar
+  SQL: título, descripción, módulo, perfil, y el link del PDF. Lo que se
+  crea ahí aparece de inmediato en el Centro de Ayuda del panel de cliente
+  (probado: creás un manual como staff, y ya está visible del otro lado sin
+  ningún paso más). Sigue siendo por URL, no upload real, mismo motivo que
+  los adjuntos de tickets.
 
 ## Emails
 
