@@ -67,10 +67,10 @@ export async function POST(req) {
   const codigo = codeRows[0].codigo;
 
   const { rows } = await query(
-    `INSERT INTO tickets (codigo, asunto, descripcion, categoria, modulo, prioridad, estado, cliente_id)
-     VALUES ($1, $2, $3, $4, $5, $6, 'Nuevo', $7)
+    `INSERT INTO tickets (codigo, asunto, descripcion, categoria, modulo, prioridad, estado, cliente_id, usuario_id)
+     VALUES ($1, $2, $3, $4, $5, $6, 'Nuevo', $7, $8)
      RETURNING ${SELECT_FIELDS}`,
-    [codigo, asunto, descripcion || null, categoria, modulo, prioridad, session.clienteId]
+    [codigo, asunto, descripcion || null, categoria, modulo, prioridad, session.clienteId, session.usuarioId]
   );
 
   const ticket = rows[0];
@@ -83,7 +83,7 @@ export async function POST(req) {
   // termine de mandarse (o de loguearse el fallo) antes de devolver la
   // respuesta. Si alguno falla no rompe la creación del ticket.
   const [notifAdmin, notifCliente] = await Promise.allSettled([
-    notificarNuevoTicketAAdmins(ticket, session.nombre),
+    notificarNuevoTicketAAdmins(ticket, `${session.clienteNombre} — levantado por ${session.nombre}`),
     confirmarTicketAlCliente(ticket, session.email),
   ]);
   if (notifAdmin.status === 'rejected') {

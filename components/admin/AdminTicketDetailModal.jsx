@@ -163,7 +163,140 @@ function AdjuntosTicket({ ticketId }) {
   );
 }
 
-export function AdminTicketDetailModal({ ticket, agentes, onClose, onUpdate }) {
+function RespuestasTicket({ ticketId }) {
+  const [respuestas, setRespuestas] = React.useState(null);
+  const [mensaje, setMensaje] = React.useState('');
+  const [enviando, setEnviando] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  const cargar = React.useCallback(() => {
+    fetch(`/api/admin/tickets/${ticketId}/respuestas`)
+      .then((res) => res.json())
+      .then((data) => setRespuestas(data.respuestas || []))
+      .catch(() => setRespuestas([]));
+  }, [ticketId]);
+
+  React.useEffect(() => {
+    cargar();
+  }, [cargar]);
+
+  async function enviar() {
+    if (!mensaje.trim()) return;
+    setEnviando(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/tickets/${ticketId}/respuestas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mensaje }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo enviar la respuesta');
+      setMensaje('');
+      cargar();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div>
+      {respuestas === null ? (
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Cargando respuestas...</div>
+      ) : respuestas.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>Todavía no le dejaste ninguna respuesta al cliente.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+          {respuestas.map((r) => (
+            <div key={r.id} style={{ padding: '8px 12px', background: 'var(--color-ai-bg)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--samply-blue)' }}>
+              <div style={{ fontSize: 14, lineHeight: 'var(--lh-normal)' }}>{r.mensaje}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                {r.agente_nombre || 'Staff'} — {formatFechaHora(r.created_at)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <textarea
+          rows={3}
+          value={mensaje}
+          onChange={(e) => setMensaje(e.target.value)}
+          placeholder="Escribí una devolución para el cliente — le va a llegar por email y va a quedar visible en su panel"
+          style={{ fontFamily: 'var(--font-sans)', fontSize: 14, padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid transparent', background: '#F1F5FB', resize: 'vertical', color: 'var(--text-primary)' }}
+        />
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Button variant="primary" size="sm" icon="message" onClick={enviar} disabled={enviando || !mensaje.trim()}>
+            {enviando ? 'Enviando...' : 'Enviar respuesta al cliente'}
+          </Button>
+        </div>
+        {error && <div style={{ fontSize: 12, color: 'var(--samply-red)' }}>{error}</div>}
+      </div>
+    </div>
+  );
+}
+
+function AgentesTicket({ ticket, agentesDisponibles, onAgregar, onQuitar }) {
+  const [agregando, setAgregando] = React.useState(false);
+  const [quitandoId, setQuitandoId] = React.useState(null);
+  const asignados = ticket.agentes || [];
+  const idsAsignados = new Set(asignados.map((a) => a.id));
+  const disponiblesParaAgregar = agentesDisponibles.filter((a) => !idsAsignados.has(a.id));
+
+  async function agregar(e) {
+    const agenteId = Number(e.target.value);
+    if (!agenteId) return;
+    setAgregando(true);
+    await onAgregar(agenteId);
+    setAgregando(false);
+    e.target.value = '';
+  }
+
+  async function quitar(agenteId) {
+    setQuitandoId(agenteId);
+    await onQuitar(agenteId);
+    setQuitandoId(null);
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 6 }}>
+        Agentes asignados {asignados.length > 1 ? `(${asignados.length})` : ''}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8, minHeight: 22 }}>
+        {asignados.length === 0 ? (
+          <Badge tone="neutral" variant="outline">Sin asignar</Badge>
+        ) : (
+          asignados.map((a) => (
+            <Badge key={a.id} tone="info" variant="soft">
+              {a.nombre}
+              <button
+                type="button"
+                onClick={() => quitar(a.id)}
+                disabled={quitandoId === a.id}
+                title="Quitar de este ticket"
+                style={{ background: 'none', border: 'none', padding: 0, marginLeft: 4, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <Icon name="x" size={11} />
+              </button>
+            </Badge>
+          ))
+        )}
+      </div>
+      <Select
+        placeholder={agregando ? 'Agregando...' : disponiblesParaAgregar.length ? 'Agregar agente...' : 'Ya están todos asignados'}
+        options={disponiblesParaAgregar.map((a) => ({ value: String(a.id), label: a.nombre }))}
+        value=""
+        onChange={agregar}
+        disabled={agregando || disponiblesParaAgregar.length === 0}
+      />
+    </div>
+  );
+}
+
+export function AdminTicketDetailModal({ ticket, agentes, onClose, onUpdate, onAgregarAgente, onQuitarAgente }) {
   const [saving, setSaving] = React.useState(null); // qué campo se está guardando
 
   if (!ticket) return null;
@@ -188,7 +321,10 @@ export function AdminTicketDetailModal({ ticket, agentes, onClose, onUpdate }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 16 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Cliente</div>
-          <div style={{ fontSize: 14, marginTop: 4 }}>{ticket.clienteNombre}</div>
+          <div style={{ fontSize: 14, marginTop: 4 }}>
+            {ticket.clienteNombre}
+            {ticket.usuarioNombre && <span style={{ color: 'var(--text-secondary)' }}> — levantado por {ticket.usuarioNombre}</span>}
+          </div>
         </div>
         <div>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Fecha</div>
@@ -204,7 +340,7 @@ export function AdminTicketDetailModal({ ticket, agentes, onClose, onUpdate }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12, marginBottom: 16 }}>
         <Select
           label={`Estado ${saving === 'estado' ? '(guardando...)' : ''}`}
           options={ESTADOS}
@@ -219,13 +355,14 @@ export function AdminTicketDetailModal({ ticket, agentes, onClose, onUpdate }) {
           onChange={(e) => cambiar('prioridad', e.target.value)}
           disabled={saving === 'prioridad'}
         />
-        <Select
-          label={`Agente asignado ${saving === 'agenteId' ? '(guardando...)' : ''}`}
-          placeholder="Sin asignar"
-          options={agentes.map((a) => ({ value: String(a.id), label: a.nombre }))}
-          value={ticket.agenteId ? String(ticket.agenteId) : ''}
-          onChange={(e) => cambiar('agenteId', e.target.value ? Number(e.target.value) : null)}
-          disabled={saving === 'agenteId'}
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <AgentesTicket
+          ticket={ticket}
+          agentesDisponibles={agentes}
+          onAgregar={(agenteId) => onAgregarAgente(ticket.dbId, agenteId)}
+          onQuitar={(agenteId) => onQuitarAgente(ticket.dbId, agenteId)}
         />
       </div>
 
@@ -260,6 +397,13 @@ export function AdminTicketDetailModal({ ticket, agentes, onClose, onUpdate }) {
           Este ticket todavía no fue analizado por IA — eso se activa en la Fase 2.
         </AiInsight>
       )}
+
+      <div style={{ marginTop: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>
+          Respuestas al cliente
+        </div>
+        <RespuestasTicket ticketId={ticket.dbId} />
+      </div>
 
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>

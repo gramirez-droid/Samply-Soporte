@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/db/client';
 import { getAgenteSessionFromRequest } from '@/lib/auth';
-import { cerrarTicketsVencidosGlobal } from '@/lib/tickets';
-
-const SELECT_FIELDS = `
-  t.id, t.codigo, t.asunto, t.descripcion, t.categoria, t.modulo, t.prioridad, t.estado,
-  t.fecha_creacion, t.ai_resumen, t.notion_page_id, t.primera_respuesta_en, t.resuelto_en,
-  t.cliente_id, c.nombre AS cliente_nombre,
-  t.agente_id, a.nombre AS agente_nombre
-`;
+import { cerrarTicketsVencidosGlobal, TICKET_ADMIN_SELECT } from '@/lib/tickets';
 
 export async function GET(req) {
   const session = await getAgenteSessionFromRequest(req);
@@ -21,10 +14,10 @@ export async function GET(req) {
   await cerrarTicketsVencidosGlobal();
 
   const { rows } = await query(
-    `SELECT ${SELECT_FIELDS}
+    `SELECT ${TICKET_ADMIN_SELECT}
      FROM tickets t
      JOIN clientes c ON c.id = t.cliente_id
-     LEFT JOIN agentes a ON a.id = t.agente_id
+     LEFT JOIN usuarios_cliente uc ON uc.id = t.usuario_id
      ORDER BY t.fecha_creacion DESC`
   );
   return NextResponse.json({ tickets: rows });

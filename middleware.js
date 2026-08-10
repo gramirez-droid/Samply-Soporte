@@ -51,7 +51,9 @@ export async function middleware(req) {
 
     const headers = new Headers(req.headers);
     headers.set('x-cliente-id', String(session.clienteId));
-    headers.set('x-cliente-nombre', session.nombre || '');
+    headers.set('x-cliente-nombre', session.clienteNombre || '');
+    headers.set('x-usuario-id', String(session.usuarioId));
+    headers.set('x-usuario-nombre', session.nombre || '');
     return NextResponse.next({ request: { headers } });
   }
 

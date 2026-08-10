@@ -176,6 +176,32 @@ curl -X PATCH http://localhost:3000/api/tickets/1 \
   -d '{"estado":"Asignado"}'
 ```
 
+## Empresas con varios usuarios (cambio de modelo)
+
+**Esto reemplaza el modelo anterior** (una empresa = un solo login). Ahora:
+- **`clientes`** es solo la **empresa** (nombre, activa/desactivada).
+- **`usuarios_cliente`** son las **personas** — cada una con su propio
+  nombre, email y contraseña, pertenecientes a una empresa. Una empresa
+  puede tener varios usuarios levantando tickets (probado: creé un segundo
+  usuario para "Distribuidora Modelo" y ambos ven y crean tickets de la
+  misma empresa, cada uno con su propio login).
+- Los tickets ahora guardan **quién puntualmente** los levantó
+  (`usuario_id`), además de a qué empresa pertenecen (`cliente_id`). El
+  staff ve ambos datos en el detalle del ticket ("Distribuidora Modelo —
+  levantado por María López").
+- **Desactivar la empresa** bloquea a *todos* sus usuarios de una.
+  **Desactivar un usuario puntual** (desde el modal "Usuarios" de esa
+  empresa) solo lo bloquea a él — el resto de la empresa sigue entrando
+  normal. Probé los dos casos por separado.
+- En el panel de staff, "Nueva empresa" ahora solo pide el nombre — después
+  de crearla se abre directo el modal para agregarle su primer usuario (sin
+  usuarios, nadie de esa empresa puede loguearse).
+- **Visibilidad de tickets**: todos los usuarios de una misma empresa ven
+  todos los tickets de esa empresa (no solo los que ellos mismos crearon)
+  — es una cuenta compartida a nivel empresa, no silos por persona. Si en
+  algún momento preferís que cada usuario solo vea lo que él mismo creó,
+  es un cambio chico en el filtro de `GET /api/tickets` — avisame.
+
 ## Panel de staff (`/admin`) — ya construido
 
 Login separado del cliente (tabla `agentes`, cookie distinta). Arranca con
@@ -198,23 +224,36 @@ Entrá a `/admin/login`. A diferencia del panel de cliente:
   configurado (Vercel Blob o S3 serían el paso siguiente).
 - Tiene un botón "**Sincronizar con Notion**" que dispara manualmente la
   sync reversa (ver abajo) — sin cron todavía.
-- Tiene una sección **"Clientes"** (nav del sidebar) para dar de alta
-  distribuidoras nuevas: nombre, email, contraseña inicial. Valida email,
-  contraseña mínima (6 caracteres) y que no exista ya ese email. El cliente
-  creado ahí puede loguearse de inmediato en `/login` con la contraseña que
-  le pusiste — no hace falta ningún paso más.
-- Tiene una sección **"Centro de ayuda"** para cargar manuales sin tocar
-  SQL: título, descripción, módulo, perfil, y el link del PDF. Lo que se
-  crea ahí aparece de inmediato en el Centro de Ayuda del panel de cliente
-  (probado: creás un manual como staff, y ya está visible del otro lado sin
-  ningún paso más). Sigue siendo por URL, no upload real, mismo motivo que
-  los adjuntos de tickets.
+- Tiene una sección **"Clientes"** (nav del sidebar) que ahora maneja
+  **empresas y sus usuarios** por separado (ver la sección de arriba). Cada
+  fila de empresa tiene botón "Usuarios" (abre el modal para agregar/activar/
+  desactivar personas de esa empresa) y botón Activar/Desactivar a nivel
+  empresa completa.
+- Tiene una sección **"Centro de ayuda"** para cargar, **editar y borrar**
+  manuales sin tocar SQL: título, descripción, módulo, perfil, y el link
+  del PDF. Lo que se crea/edita ahí aparece de inmediato en el Centro de
+  Ayuda del panel de cliente. Sigue siendo por URL, no upload real, mismo
+  motivo que los adjuntos de tickets.
+- En el detalle de cada ticket hay una sección **"Respuestas al cliente"**:
+  el staff escribe una devolución (texto libre), que queda visible tanto ahí
+  como en el panel del cliente (sección de solo lectura "Respuestas del
+  equipo de soporte" en su propio modal de detalle), y dispara un email al
+  cliente avisándole que tiene una respuesta nueva.
+
+- Un ticket puede tener **varios agentes** trabajando en él a la vez — no
+  es un dropdown que reemplaza al agente, es una lista: agregás y sacás
+  gente sin perder a los que ya estaban asignados. Todos los agentes
+  asignados son "pares" (no hay uno "principal" por encima de los demás).
+  En la tabla se ven todos los nombres; en el detalle, cada uno con su
+  botoncito de sacar + un selector para agregar otro.
 
 ## Emails
 
-Dos emails automáticos al crear un ticket (`POST /api/tickets`):
-1. Aviso a `ADMIN_NOTIFICATION_EMAIL` (el mail interno que definan en Samply).
+Tres emails automáticos, todos con el mismo comportamiento sin
+`RESEND_API_KEY` (se simulan en consola, no fallan):
+1. Aviso a `ADMIN_NOTIFICATION_EMAIL` cuando un cliente crea un ticket.
 2. Confirmación al cliente que lo creó, con el número de ticket.
+3. Aviso al cliente cuando el staff le deja una respuesta en un ticket.
 
 Usan [Resend](https://resend.com) — sin `RESEND_API_KEY` configurada, **no
 fallan**: el email se loguea a consola en vez de mandarse, así podés seguir

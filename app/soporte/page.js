@@ -8,6 +8,7 @@ export default function SoportePage() {
   // de la request (ver middleware.js) — no hace falta re-verificar acá.
   const headersList = headers();
   const clienteNombre = headersList.get('x-cliente-nombre') || 'Cliente Samply';
+  const usuarioNombre = headersList.get('x-usuario-nombre') || clienteNombre;
 
-  return <SupportApp clienteNombre={clienteNombre} />;
+  return <SupportApp clienteNombre={clienteNombre} usuarioNombre={usuarioNombre} />;
 }

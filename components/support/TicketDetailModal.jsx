@@ -82,6 +82,48 @@ function HistorialTicket({ ticketId }) {
   );
 }
 
+function RespuestasTicket({ ticketId }) {
+  const [respuestas, setRespuestas] = React.useState(null);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    let cancelado = false;
+    fetch(`/api/tickets/${ticketId}/respuestas`)
+      .then((res) => {
+        if (!res.ok) throw new Error('No se pudieron cargar las respuestas');
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelado) setRespuestas(data.respuestas);
+      })
+      .catch((err) => {
+        if (!cancelado) setError(err.message);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [ticketId]);
+
+  if (error) return <div style={{ fontSize: 13, color: 'var(--samply-red)' }}>{error}</div>;
+  if (respuestas === null) return <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Cargando respuestas...</div>;
+  if (respuestas.length === 0) {
+    return <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Todavía no tenés respuestas del equipo de soporte en este ticket.</div>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {respuestas.map((r) => (
+        <div key={r.id} style={{ padding: '8px 12px', background: 'var(--color-ai-bg)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--samply-blue)' }}>
+          <div style={{ fontSize: 14, lineHeight: 'var(--lh-normal)' }}>{r.mensaje}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+            {r.agente_nombre || 'Soporte Samply'} — {formatFechaHora(r.created_at)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function TicketDetailModal({ ticket, onClose }) {
   if (!ticket) return null;
 
@@ -147,6 +189,13 @@ export function TicketDetailModal({ ticket, onClose }) {
           Este ticket todavía no fue analizado por IA — eso se activa en la Fase 2.
         </AiInsight>
       )}
+
+      <div style={{ marginTop: 16, marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>
+          Respuestas del equipo de soporte
+        </div>
+        <RespuestasTicket ticketId={ticket.dbId} />
+      </div>
 
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>

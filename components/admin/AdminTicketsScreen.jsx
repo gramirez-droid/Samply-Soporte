@@ -74,20 +74,20 @@ export function AdminTicketsScreen() {
   }, [loadTickets]);
 
   const abiertos = rows.filter((t) => !['Resuelto', 'Cerrado'].includes(t.estado));
-  const sinAsignar = rows.filter((t) => !t.agenteId && !['Resuelto', 'Cerrado'].includes(t.estado));
+  const sinAsignar = rows.filter((t) => t.agentes.length === 0 && !['Resuelto', 'Cerrado'].includes(t.estado));
   const resueltos = rows.filter((t) => t.estado === 'Resuelto');
   const cumplimientoSLA = porcentajeCumplimientoSLA(rows);
 
   const filtered = rows.filter((t) => {
     if (tab === 'abiertos' && ['Resuelto', 'Cerrado'].includes(t.estado)) return false;
-    if (tab === 'sin_asignar' && (t.agenteId || ['Resuelto', 'Cerrado'].includes(t.estado))) return false;
+    if (tab === 'sin_asignar' && (t.agentes.length > 0 || ['Resuelto', 'Cerrado'].includes(t.estado))) return false;
     if (tab === 'resueltos' && t.estado !== 'Resuelto') return false;
     if (search && !`${t.id} ${t.asunto} ${t.clienteNombre}`.toLowerCase().includes(search.toLowerCase())) return false;
     if (filtroCategoria && t.categoria !== filtroCategoria) return false;
     if (filtroPrioridad && t.prioridad !== filtroPrioridad) return false;
     if (filtroEstado && t.estado !== filtroEstado) return false;
-    if (filtroAgente === 'sin_asignar' && t.agenteId) return false;
-    if (filtroAgente && filtroAgente !== 'sin_asignar' && String(t.agenteId) !== filtroAgente) return false;
+    if (filtroAgente === 'sin_asignar' && t.agentes.length > 0) return false;
+    if (filtroAgente && filtroAgente !== 'sin_asignar' && !t.agentes.some((a) => String(a.id) === filtroAgente)) return false;
     if (filtroFechaDesde && new Date(t.fechaCreacionRaw) < new Date(`${filtroFechaDesde}T00:00:00`)) return false;
     if (filtroFechaHasta && new Date(t.fechaCreacionRaw) > new Date(`${filtroFechaHasta}T23:59:59`)) return false;
     return true;
@@ -102,6 +102,36 @@ export function AdminTicketsScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo actualizar el ticket');
+      const updated = mapTicketAdmin(data.ticket);
+      setRows((rs) => rs.map((r) => (r.dbId === updated.dbId ? updated : r)));
+      setDetail((d) => (d && d.dbId === updated.dbId ? updated : d));
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
+  async function handleAgregarAgente(dbId, agenteId) {
+    try {
+      const res = await fetch(`/api/admin/tickets/${dbId}/agentes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agenteId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo agregar el agente');
+      const updated = mapTicketAdmin(data.ticket);
+      setRows((rs) => rs.map((r) => (r.dbId === updated.dbId ? updated : r)));
+      setDetail((d) => (d && d.dbId === updated.dbId ? updated : d));
+    } catch (err) {
+      window.alert(err.message);
+    }
+  }
+
+  async function handleQuitarAgente(dbId, agenteId) {
+    try {
+      const res = await fetch(`/api/admin/tickets/${dbId}/agentes/${agenteId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo quitar el agente');
       const updated = mapTicketAdmin(data.ticket);
       setRows((rs) => rs.map((r) => (r.dbId === updated.dbId ? updated : r)));
       setDetail((d) => (d && d.dbId === updated.dbId ? updated : d));
@@ -212,9 +242,16 @@ export function AdminTicketsScreen() {
               { key: 'prioridad', header: 'Prioridad', sortable: true, render: priorityBadge },
               { key: 'estado', header: 'Estado', sortable: true, render: stateBadge },
               {
-                key: 'agenteNombre',
-                header: 'Agente',
-                render: (v) => (v ? <Badge tone="info" variant="soft">{v}</Badge> : <Badge tone="neutral" variant="outline">Sin asignar</Badge>),
+                key: 'agentes',
+                header: 'Agentes',
+                render: (v) =>
+                  !v || v.length === 0 ? (
+                    <Badge tone="neutral" variant="outline">Sin asignar</Badge>
+                  ) : (
+                    <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+                      {v.map((a) => <Badge key={a.id} tone="info" variant="soft">{a.nombre}</Badge>)}
+                    </span>
+                  ),
               },
               { key: 'sla', header: 'SLA', render: (_, row) => slaBadge(row) },
               { key: 'fecha', header: 'Fecha', muted: true, sortable: true },
@@ -241,6 +278,8 @@ export function AdminTicketsScreen() {
         agentes={agentes}
         onClose={() => setDetail(null)}
         onUpdate={handleUpdate}
+        onAgregarAgente={handleAgregarAgente}
+        onQuitarAgente={handleQuitarAgente}
       />
     </div>
   );

@@ -122,13 +122,14 @@ export function mapTicket(t) {
 }
 
 /** Igual que mapTicket, pero para la vista de staff — incluye el nombre del
- *  cliente y el agente asignado (que vienen del JOIN en /api/admin/tickets). */
+ *  cliente (empresa), quién exactamente levantó el ticket, y la lista de
+ *  agentes asignados (un ticket puede tener varios). */
 export function mapTicketAdmin(t) {
   return {
     ...mapTicket(t),
     clienteId: t.cliente_id,
     clienteNombre: t.cliente_nombre,
-    agenteId: t.agente_id,
-    agenteNombre: t.agente_nombre,
+    usuarioNombre: t.usuario_nombre,
+    agentes: t.agentes || [], // [{ id, nombre }, ...]
   };
 }

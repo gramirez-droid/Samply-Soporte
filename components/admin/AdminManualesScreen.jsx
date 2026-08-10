@@ -8,7 +8,7 @@ import { Select } from '@/components/ds/Select';
 import { DataTable } from '@/components/ds/DataTable';
 import { Badge } from '@/components/ds/Badge';
 import { Modal } from '@/components/ds/Modal';
-import { Icon } from '@/components/ds/Icon';
+import { IconButton } from '@/components/ds/IconButton';
 
 const MODULOS = ['App móvil (Preventa)', 'Televentas', 'B2B eCommerce', 'Inventarios', 'Facturación', 'Reportería / KPIs'];
 const ROLES = ['Todos los perfiles', 'Administrador', 'Vendedor / Preventista', 'Cobrador', 'Entregador'];
@@ -22,12 +22,27 @@ function formatFecha(iso) {
 
 const EMPTY_FORM = { titulo: '', descripcion: '', modulo: '', rol: 'Todos los perfiles', archivoUrl: '' };
 
-function NuevoManualModal({ open, onClose, onCreate, submitting, error }) {
+// Un solo modal para crear Y editar — si viene con `manual`, arranca
+// precargado y manda PATCH en vez de POST.
+function ManualModal({ open, onClose, onSave, submitting, error, manual }) {
   const [form, setForm] = React.useState(EMPTY_FORM);
+  const editando = Boolean(manual);
 
   React.useEffect(() => {
-    if (open) setForm(EMPTY_FORM);
-  }, [open]);
+    if (open) {
+      setForm(
+        manual
+          ? {
+              titulo: manual.titulo,
+              descripcion: manual.descripcion || '',
+              modulo: manual.modulo,
+              rol: manual.rol,
+              archivoUrl: manual.archivo_url,
+            }
+          : EMPTY_FORM
+      );
+    }
+  }, [open, manual]);
 
   function set(k) {
     return (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -35,7 +50,7 @@ function NuevoManualModal({ open, onClose, onCreate, submitting, error }) {
 
   async function submit() {
     if (!form.titulo.trim() || !form.archivoUrl.trim() || !form.modulo) return;
-    const ok = await onCreate(form);
+    const ok = await onSave(form);
     if (ok) setForm(EMPTY_FORM);
   }
 
@@ -44,17 +59,17 @@ function NuevoManualModal({ open, onClose, onCreate, submitting, error }) {
       open={open}
       onClose={onClose}
       width={560}
-      title="Nuevo manual"
+      title={editando ? `Editar manual · ${manual.titulo}` : 'Nuevo manual'}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button
             variant="primary"
-            icon="plus"
+            icon={editando ? 'check' : 'plus'}
             onClick={submit}
             disabled={submitting || !form.titulo.trim() || !form.archivoUrl.trim() || !form.modulo}
           >
-            {submitting ? 'Creando...' : 'Crear manual'}
+            {submitting ? 'Guardando...' : editando ? 'Guardar cambios' : 'Crear manual'}
           </Button>
         </>
       }
@@ -95,9 +110,10 @@ export function AdminManualesScreen() {
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState(null);
   const [search, setSearch] = React.useState('');
-  const [showNew, setShowNew] = React.useState(false);
-  const [creating, setCreating] = React.useState(false);
-  const [createError, setCreateError] = React.useState(null);
+  const [showModal, setShowModal] = React.useState(false);
+  const [editingManual, setEditingManual] = React.useState(null);
+  const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState(null);
 
   const loadManuales = React.useCallback(async () => {
     setLoading(true);
@@ -122,25 +138,56 @@ export function AdminManualesScreen() {
     !search || `${m.titulo} ${m.modulo} ${m.rol}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  async function handleCreate(form) {
-    setCreating(true);
-    setCreateError(null);
+  function abrirNuevo() {
+    setEditingManual(null);
+    setSaveError(null);
+    setShowModal(true);
+  }
+
+  function abrirEditar(manual) {
+    setEditingManual(manual);
+    setSaveError(null);
+    setShowModal(true);
+  }
+
+  async function handleSave(form) {
+    setSaving(true);
+    setSaveError(null);
     try {
-      const res = await fetch('/api/admin/manuales', {
-        method: 'POST',
+      const url = editingManual ? `/api/admin/manuales/${editingManual.id}` : '/api/admin/manuales';
+      const method = editingManual ? 'PATCH' : 'POST';
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'No se pudo crear el manual');
-      setManuales((m) => [...m, data.manual].sort((a, b) => a.modulo.localeCompare(b.modulo) || a.titulo.localeCompare(b.titulo)));
-      setShowNew(false);
+      if (!res.ok) throw new Error(data.error || 'No se pudo guardar el manual');
+
+      if (editingManual) {
+        setManuales((ms) => ms.map((m) => (m.id === data.manual.id ? data.manual : m)));
+      } else {
+        setManuales((ms) => [...ms, data.manual].sort((a, b) => a.modulo.localeCompare(b.modulo) || a.titulo.localeCompare(b.titulo)));
+      }
+      setShowModal(false);
       return true;
     } catch (err) {
-      setCreateError(err.message);
+      setSaveError(err.message);
       return false;
     } finally {
-      setCreating(false);
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(manual) {
+    if (!window.confirm(`¿Borrar "${manual.titulo}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      const res = await fetch(`/api/admin/manuales/${manual.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo borrar el manual');
+      setManuales((ms) => ms.filter((m) => m.id !== manual.id));
+    } catch (err) {
+      window.alert(err.message);
     }
   }
 
@@ -154,7 +201,7 @@ export function AdminManualesScreen() {
               variant="primary"
               size="sm"
               icon="plus"
-              onClick={() => setShowNew(true)}
+              onClick={abrirNuevo}
               style={{ background: 'var(--samply-white)', color: 'var(--samply-blue)', border: '1px solid var(--samply-white)' }}
             >
               Nuevo manual
@@ -184,11 +231,15 @@ export function AdminManualesScreen() {
               { key: 'rol', header: 'Perfil', render: (v) => <Badge tone="info" variant="soft">{v}</Badge> },
               { key: 'created_at', header: 'Cargado', muted: true, render: formatFecha },
               {
-                key: 'archivo_url', header: '', width: 90,
-                render: (v) => (
-                  <a href={v} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="sm" icon="download">Ver</Button>
-                  </a>
+                key: 'acciones', header: '', width: 140,
+                render: (_, row) => (
+                  <span style={{ display: 'inline-flex', gap: 2 }}>
+                    <a href={row.archivo_url} target="_blank" rel="noopener noreferrer">
+                      <IconButton icon="download" tone="info" size="sm" title="Ver PDF" />
+                    </a>
+                    <IconButton icon="edit" tone="default" size="sm" title="Editar" onClick={() => abrirEditar(row)} />
+                    <IconButton icon="x" tone="danger" size="sm" title="Borrar" onClick={() => handleDelete(row)} />
+                  </span>
                 ),
               },
             ]}
@@ -201,12 +252,13 @@ export function AdminManualesScreen() {
         </div>
       </Card>
 
-      <NuevoManualModal
-        open={showNew}
-        onClose={() => setShowNew(false)}
-        onCreate={handleCreate}
-        submitting={creating}
-        error={createError}
+      <ManualModal
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        onSave={handleSave}
+        submitting={saving}
+        error={saveError}
+        manual={editingManual}
       />
     </div>
   );

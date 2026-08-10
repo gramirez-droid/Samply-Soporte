@@ -14,7 +14,7 @@ const NAV = [
   { id: 'ayuda', label: 'Centro de ayuda', icon: 'download' },
 ];
 
-export function AppShell({ clienteNombre, active, onSelect, children }) {
+export function AppShell({ clienteNombre, usuarioNombre, active, onSelect, children }) {
   const [expanded, setExpanded] = React.useState(true);
   const router = useRouter();
 
@@ -26,13 +26,15 @@ export function AppShell({ clienteNombre, active, onSelect, children }) {
 
   const footer = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#fff' }}>
-      <Avatar name={clienteNombre} size="sm" tone="blue" />
+      <Avatar name={usuarioNombre} size="sm" tone="blue" />
       {expanded && (
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {usuarioNombre}
+          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {clienteNombre}
           </div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>Cliente</div>
         </div>
       )}
       {expanded && (

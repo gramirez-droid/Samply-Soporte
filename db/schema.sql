@@ -4,10 +4,45 @@
 CREATE TABLE IF NOT EXISTS clientes (
   id            SERIAL PRIMARY KEY,
   nombre        VARCHAR(255) NOT NULL,
-  email         VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
+  email         VARCHAR(255) UNIQUE,
+  password_hash VARCHAR(255),
+  activo        BOOLEAN NOT NULL DEFAULT true,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Por si ya tenías la tabla creada de antes sin esta columna.
+ALTER TABLE clientes ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT true;
+
+-- `clientes` ahora es solo la EMPRESA (nombre, activo) — el login individual
+-- se mudó a `usuarios_cliente`. email/password_hash quedan nullable acá por
+-- compatibilidad con filas viejas, pero el código ya no los usa para nada.
+ALTER TABLE clientes ALTER COLUMN email DROP NOT NULL;
+ALTER TABLE clientes ALTER COLUMN password_hash DROP NOT NULL;
+
+-- Una empresa puede tener VARIOS usuarios levantando tickets (no un solo
+-- login compartido). Cada usuario pertenece a una empresa; el email es
+-- único en todo el sistema (una persona = una cuenta).
+CREATE TABLE IF NOT EXISTS usuarios_cliente (
+  id            SERIAL PRIMARY KEY,
+  cliente_id    INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
+  nombre        VARCHAR(255) NOT NULL,
+  email         VARCHAR(255) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  activo        BOOLEAN NOT NULL DEFAULT true,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_usuarios_cliente_cliente ON usuarios_cliente (cliente_id);
+
+-- Migramos los logins que ya existían directo en `clientes` (email +
+-- password_hash) a `usuarios_cliente`, uno por cada empresa — así nadie
+-- pierde el acceso que ya tenía. A partir de ahora el login se valida
+-- contra esta tabla, no contra `clientes`.
+INSERT INTO usuarios_cliente (cliente_id, nombre, email, password_hash, activo)
+SELECT id, nombre, email, password_hash, activo
+FROM clientes
+WHERE email IS NOT NULL AND password_hash IS NOT NULL
+ON CONFLICT (email) DO NOTHING;
 
 -- Secuencia para los códigos visibles TCK-1043, TCK-1044... (arranca donde
 -- termina el prototipo, que llegaba hasta TCK-1042).
@@ -56,6 +91,19 @@ CREATE TABLE IF NOT EXISTS tickets (
 CREATE INDEX IF NOT EXISTS idx_tickets_cliente ON tickets (cliente_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_estado   ON tickets (estado);
 CREATE INDEX IF NOT EXISTS idx_tickets_fecha    ON tickets (fecha_creacion DESC);
+
+-- Qué usuario PUNTUAL de la empresa levantó este ticket (una empresa puede
+-- tener varios usuarios — esto es lo que responde "quién exactamente").
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS usuario_id INTEGER REFERENCES usuarios_cliente(id);
+CREATE INDEX IF NOT EXISTS idx_tickets_usuario ON tickets (usuario_id);
+
+-- Para los tickets que ya existían antes de este cambio (no tenían
+-- usuario_id todavía): los asociamos al primer usuario migrado de su
+-- misma empresa, así no quedan huérfanos.
+UPDATE tickets t
+SET usuario_id = uc.id
+FROM usuarios_cliente uc
+WHERE uc.cliente_id = t.cliente_id AND t.usuario_id IS NULL;
 
 -- Por si ya habías corrido esta migración antes de que existieran estas
 -- columnas: CREATE TABLE IF NOT EXISTS no las agrega a una tabla que ya
@@ -145,3 +193,38 @@ CREATE TABLE IF NOT EXISTS manuales (
 
 CREATE INDEX IF NOT EXISTS idx_manuales_modulo ON manuales (modulo);
 CREATE INDEX IF NOT EXISTS idx_manuales_rol    ON manuales (rol);
+
+-- Respuestas del staff al cliente en un ticket — la "devolución" que pide
+-- Gonzalo: un mensaje visible para el cliente en su panel, con email de
+-- aviso. Es de un solo sentido (staff → cliente) por ahora; el cliente no
+-- responde desde la plataforma todavía.
+CREATE TABLE IF NOT EXISTS tickets_respuestas (
+  id          SERIAL PRIMARY KEY,
+  ticket_id   INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  agente_id   INTEGER REFERENCES agentes(id),
+  mensaje     TEXT NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_respuestas_ticket ON tickets_respuestas (ticket_id);
+
+-- Un ticket puede tener VARIOS agentes trabajando en él (no solo uno) — es
+-- una relación muchos a muchos, no la columna tickets.agente_id de antes
+-- (que queda en la tabla sin usarse, por compatibilidad, pero el código ya
+-- no la lee ni la escribe). Todos los agentes asignados son "pares", sin
+-- uno "principal" por encima de los demás.
+CREATE TABLE IF NOT EXISTS tickets_agentes (
+  ticket_id    INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+  agente_id    INTEGER NOT NULL REFERENCES agentes(id) ON DELETE CASCADE,
+  asignado_en  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (ticket_id, agente_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tickets_agentes_ticket ON tickets_agentes (ticket_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_agentes_agente ON tickets_agentes (agente_id);
+
+-- Migramos las asignaciones que ya existían en tickets.agente_id (single)
+-- a la tabla nueva, para no perder lo que ya estaba asignado.
+INSERT INTO tickets_agentes (ticket_id, agente_id)
+SELECT id, agente_id FROM tickets WHERE agente_id IS NOT NULL
+ON CONFLICT DO NOTHING;
