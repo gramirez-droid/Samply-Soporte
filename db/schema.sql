@@ -213,6 +213,17 @@ CREATE INDEX IF NOT EXISTS idx_respuestas_ticket ON tickets_respuestas (ticket_i
 -- responder (era de un solo sentido: staff → cliente).
 ALTER TABLE tickets_respuestas ADD COLUMN IF NOT EXISTS usuario_id INTEGER REFERENCES usuarios_cliente(id);
 
+-- Lista de emails que reciben avisos de "ticket nuevo" y "el cliente
+-- respondió" — configurable desde el panel de staff (pantalla
+-- "Notificaciones"), sin tocar variables de entorno ni redeployar. Si esta
+-- tabla está vacía, el código usa ADMIN_NOTIFICATION_EMAIL como respaldo
+-- (compatibilidad con el setup anterior).
+CREATE TABLE IF NOT EXISTS notificacion_emails (
+  id          SERIAL PRIMARY KEY,
+  email       VARCHAR(255) UNIQUE NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Un ticket puede tener VARIOS agentes trabajando en él (no solo uno) — es
 -- una relación muchos a muchos, no la columna tickets.agente_id de antes
 -- (que queda en la tabla sin usarse, por compatibilidad, pero el código ya

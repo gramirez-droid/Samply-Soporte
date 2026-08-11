@@ -278,11 +278,30 @@ Entrá a `/admin/login`. A diferencia del panel de cliente:
 
 ## Emails
 
-Tres emails automáticos, todos con el mismo comportamiento sin
+Cinco emails automáticos, todos con el mismo comportamiento sin
 `RESEND_API_KEY` (se simulan en consola, no fallan):
-1. Aviso a `ADMIN_NOTIFICATION_EMAIL` cuando un cliente crea un ticket.
+1. Aviso a la lista de "Notificaciones" cuando un cliente crea un ticket.
 2. Confirmación al cliente que lo creó, con el número de ticket.
-3. Aviso al cliente cuando el staff le deja una respuesta en un ticket.
+3. Aviso al cliente cuando el staff le deja una respuesta en el chat.
+4. Aviso a la lista de "Notificaciones" cuando el cliente responde en el chat.
+5. **Nuevo:** aviso al cliente cada vez que **cambia el estado** de su
+   ticket (Nuevo → Asignado → En progreso → etc.) — antes esto no
+   generaba ningún aviso. Si el estado se "cambia" al mismo valor que ya
+   tenía, no se manda nada de más (probado).
+
+### Quién recibe los avisos de "ticket nuevo" / "el cliente respondió"
+
+Antes esto era una sola dirección fija en la variable de entorno
+`ADMIN_NOTIFICATION_EMAIL` — para agregar o sacar gente había que editar
+esa variable en Netlify y esperar un redeploy.
+
+Ahora hay una pantalla **"Notificaciones"** en el panel de staff donde se
+administra esa lista directamente (agregar/sacar emails), sin tocar
+Netlify ni redeployar — el cambio es instantáneo. Mientras esa lista esté
+vacía, sigue usando `ADMIN_NOTIFICATION_EMAIL` como respaldo (admite una
+sola dirección o varias separadas por coma) — apenas agregues el primer
+email desde la pantalla, esa lista pasa a mandar en su lugar. Probado con
+2 destinatarios a la vez: llegó a los dos.
 
 Usan [Resend](https://resend.com) — sin `RESEND_API_KEY` configurada, **no
 fallan**: el email se loguea a consola en vez de mandarse, así podés seguir
