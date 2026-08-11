@@ -276,6 +276,29 @@ Entrá a `/admin/login`. A diferencia del panel de cliente:
   En la tabla se ven todos los nombres; en el detalle, cada uno con su
   botoncito de sacar + un selector para agregar otro.
 
+### Diseño de los emails
+
+Todos los emails (los 5 de la lista de arriba) usan una plantilla visual
+compartida con la identidad de Samply: header navy con el wordmark, franja
+de acento de color (celeste para avisos normales, verde para "Resuelto"),
+botón de acción, y footer con el pie estándar. Todo en HTML con estilos
+inline (necesario para que se vea bien en Gmail/Outlook, que no soportan
+bloques `<style>`).
+
+Dos casos tienen contenido especial en vez del genérico "cambió de estado":
+- **Al crear el ticket**: "¡Recibimos tu ticket! ... Vamos a tomar el caso
+  y te vamos a ir informando el estado a la brevedad."
+- **Al resolverlo**: "¡Buenas noticias! Tu ticket ... fue resuelto con
+  éxito ✅" (con la franja de acento en verde en vez de celeste).
+- **Al cerrarlo**: mensaje de cierre más neutro, invitando a abrir un
+  ticket nuevo si surge algo relacionado más adelante.
+
+**Importante:** los botones de esos emails ("Ver mi ticket", "Ver en el
+panel") arman el link con la variable `APP_URL` — confirmá que esté
+cargada en Netlify con la URL real del sitio
+(`https://soportesamply.netlify.app`, sin barra al final), o esos botones
+van a apuntar a `localhost:3000` en producción.
+
 ## Emails
 
 Cinco emails automáticos, todos con el mismo comportamiento sin
@@ -310,31 +333,58 @@ empiezan a mandarse de verdad, sin tocar código.
 
 ## Integración con Notion
 
+Se conecta a la base **"User Stories"** que ya usa el equipo (no una base
+nueva) — los tickets de soporte aparecen ahí con su propio tag, mezclados
+con el resto del trabajo de producto.
+
 Flujo confirmado:
 - Ticket pasa a **"En progreso"** (desde el panel de staff) → se crea la
-  page en la Notion database de soporte (`lib/notion.js` →
-  `crearTicketEnNotion`), guardando el `notion_page_id`.
-- Cuando en Notion el staff marca **"Validación Customer"** → el ticket
-  pasa a **"Resuelto"** acá (`lib/tickets.js` →
-  `sincronizarResueltosDesdeNotion`).
+  page en "User Stories" (`lib/notion.js` → `crearTicketEnNotion`), con:
+  - `Status producto` = **"Tickets Soporte"** (opción que Gonzalo agrega a
+    mano en Notion — el código no crea opciones nuevas, solo las usa).
+  - `Status Sprint Activo` = **"To do"**.
+  - `Assignee` = la persona real de Notion que coincide por **nombre**
+    con el/los agente(s) ya asignado(s) en Samply en ese momento (si hay
+    coincidencia — si no encuentra a nadie con ese nombre exacto, queda
+    sin asignar y lo loguea, no rompe).
+  - El resto (cliente, categoría, módulo, prioridad, resumen IA, link al
+    ticket) va como texto en el **cuerpo** de la page, no como properties
+    nuevas — así no hace falta tocar el schema de la base existente.
+- El botón **"Sincronizar con Notion"** hace las DOS direcciones cada vez
+  que se aprieta:
+  1. Empuja el Assignee actualizado hacia Notion (por si el agente
+     asignado cambió en Samply después de crear la page).
+  2. Trae de Notion las pages con `Status Sprint Activo` = **"Done"** y
+     marca esos tickets como **"Resuelto"** en Samply — disparando el
+     mismo email de resolución que ya existe para el cambio manual de
+     estado (antes esto no mandaba email, ahora sí).
 
-Sin `NOTION_API_KEY` / `NOTION_DATABASE_ID` configuradas, la creación de la
-page se saltea con un log (no rompe el cambio de estado), y el botón de
-sync manual devuelve un error claro en vez de romper. Los nombres de las
-properties de Notion (`Asunto`, `Categoría`, `Prioridad`, `Estado`,
-`Cliente`, `Resumen IA`, `Link al ticket`) tienen que coincidir exacto con
-los de tu database — es lo único que hay que ajustar si los tuyos son
-distintos.
+Los nombres de las properties (`Name`, `Status producto`,
+`Status Sprint Activo`, `Assignee`) están como constantes al principio de
+`lib/notion.js` — si tu base usa otros nombres, es lo único que hay que
+ajustar ahí.
 
-**Todavía no hay cron real** — la sync reversa hay que dispararla a mano
-desde el botón del panel, o llamando a `POST /api/admin/notion/sync`. El
-paso siguiente natural es un Vercel Cron Job que la llame cada X minutos.
+Sin `NOTION_API_KEY` / `NOTION_DATABASE_ID` configuradas, todo esto se
+saltea con un log (no rompe el cambio de estado ni nada del resto de la
+app — probado), y el botón de sync manual devuelve un error claro (400)
+en vez de romper (probado, ya no da 500).
+
+**Todavía no hay cron real** — la sync hay que dispararla a mano desde el
+botón del panel, o llamando a `POST /api/admin/notion/sync`. El paso
+siguiente natural es un Vercel Cron Job que la llame cada X minutos.
+
+**No pude probar contra Notion de verdad en esta vuelta** (todavía no
+tenemos `NOTION_API_KEY` — está en trámite con el admin del workspace).
+Lo que sí probé: que el resto del sistema sigue funcionando sin romperse
+mientras Notion no esté configurado. Apenas tengan la key + el
+`NOTION_DATABASE_ID`, probamos el flujo real de punta a punta.
 
 ## Próximos pasos (todavía no construidos)
 
 - **Cron real** para el auto-cierre de tickets y la sync de Notion (hoy
   ambos son "perezosos": se disparan al leer/pedir, no en background).
 - **Upload de archivos real** (Vercel Blob o S3) para los adjuntos — hoy
+
   son solo links.
 - **Análisis con Claude API**: al crear el ticket, llamar a la API para
   generar el `ai_resumen` que ya se muestra en el modal de detalle.
