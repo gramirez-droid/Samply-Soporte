@@ -24,10 +24,10 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: 'Nada para actualizar' }, { status: 400 });
   }
 
-  const { rows: actualRows } = await query('SELECT * FROM clientes WHERE id = $1', [id]);
+  const { rows: actualRows } = await query('SELECT * FROM agentes WHERE id = $1', [id]);
   const actual = actualRows[0];
   if (!actual) {
-    return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
+    return NextResponse.json({ error: 'Agente no encontrado' }, { status: 404 });
   }
 
   const nombre = body.nombre !== undefined ? body.nombre.trim() : actual.nombre;
@@ -37,16 +37,14 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: 'El nombre no puede quedar vacío' }, { status: 400 });
   }
 
-  // Desactivar la EMPRESA bloquea a todos sus usuarios de una — no hace
-  // falta desactivarlos uno por uno (el login chequea ambos niveles).
   const { rows } = await query(
-    `UPDATE clientes SET nombre = $1, activo = $2
+    `UPDATE agentes SET nombre = $1, activo = $2
      WHERE id = $3
-     RETURNING id, nombre, activo, created_at`,
+     RETURNING id, nombre, email, activo, created_at`,
     [nombre, activo, id]
   );
 
-  return NextResponse.json({ cliente: rows[0] });
+  return NextResponse.json({ agente: rows[0] });
 }
 
 export async function DELETE(req, { params }) {
@@ -60,14 +58,19 @@ export async function DELETE(req, { params }) {
     return NextResponse.json({ error: 'Id inválido' }, { status: 400 });
   }
 
-  // Borrado real y en cascada (ON DELETE CASCADE en el schema): se van los
-  // usuarios de esa empresa, sus tickets, y todo lo que cuelga de esos
-  // tickets (historial, respuestas, adjuntos, agentes asignados). El
-  // frontend avisa esto con los conteos ANTES de llamar acá — no hay
-  // vuelta atrás una vez que se confirma.
-  const { rows } = await query('DELETE FROM clientes WHERE id = $1 RETURNING id', [id]);
+  // No te dejamos borrarte a vos mismo mientras estás logueado — te
+  // quedarías sin sesión válida a mitad de la operación.
+  if (session.agenteId === id) {
+    return NextResponse.json({ error: 'No podés eliminar tu propio usuario mientras estás logueado con él' }, { status: 400 });
+  }
+
+  // El borrado es real (no soft-delete). Los tickets que este agente tenía
+  // asignados simplemente lo pierden de la lista de asignados (quedan con
+  // los demás agentes, si había más de uno) — y los mensajes/adjuntos que
+  // dejó no se borran, solo pierden la referencia (se muestran sin nombre).
+  const { rows } = await query('DELETE FROM agentes WHERE id = $1 RETURNING id', [id]);
   if (!rows[0]) {
-    return NextResponse.json({ error: 'Cliente no encontrado' }, { status: 404 });
+    return NextResponse.json({ error: 'Agente no encontrado' }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });

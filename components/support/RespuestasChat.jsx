@@ -53,7 +53,7 @@ export function RespuestasChat({ apiBase, ticketId, esMio, placeholderVacio, pla
   }
 
   function nombreAutor(r) {
-    return r.agente_nombre || r.usuario_nombre || 'Alguien';
+    return r.agente_nombre || r.usuario_nombre || 'Alguien que ya no está en el sistema';
   }
 
   return (

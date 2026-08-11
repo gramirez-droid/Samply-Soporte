@@ -7,7 +7,6 @@ import { Input } from '@/components/ds/Input';
 import { DataTable } from '@/components/ds/DataTable';
 import { Badge } from '@/components/ds/Badge';
 import { Modal } from '@/components/ds/Modal';
-import { ClienteUsuariosModal } from './ClienteUsuariosModal';
 
 function formatFecha(iso) {
   if (!iso) return '—';
@@ -16,29 +15,40 @@ function formatFecha(iso) {
   return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-function NuevaEmpresaModal({ open, onClose, onCreate, submitting, error }) {
+function NuevoAgenteModal({ open, onClose, onCreate, submitting, error }) {
   const [nombre, setNombre] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
 
   React.useEffect(() => {
-    if (open) setNombre('');
+    if (open) {
+      setNombre('');
+      setEmail('');
+      setPassword('');
+    }
   }, [open]);
 
   async function submit() {
-    if (!nombre.trim()) return;
-    await onCreate(nombre);
+    if (!nombre.trim() || !email.trim() || !password.trim()) return;
+    const ok = await onCreate({ nombre, email, password });
+    if (ok) {
+      setNombre('');
+      setEmail('');
+      setPassword('');
+    }
   }
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      width={440}
-      title="Nueva empresa"
+      width={480}
+      title="Nuevo agente"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button variant="primary" icon="plus" onClick={submit} disabled={submitting || !nombre.trim()}>
-            {submitting ? 'Creando...' : 'Crear empresa'}
+          <Button variant="primary" icon="plus" onClick={submit} disabled={submitting || !nombre.trim() || !email.trim() || !password.trim()}>
+            {submitting ? 'Creando...' : 'Crear agente'}
           </Button>
         </>
       }
@@ -48,18 +58,17 @@ function NuevaEmpresaModal({ open, onClose, onCreate, submitting, error }) {
           {error}
         </div>
       )}
-      <Input label="Nombre de la empresa" placeholder="Ej: Distribuidora del Valle" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
-      <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 10 }}>
-        Esto crea solo la empresa. Después de crearla te va a aparecer el modal para
-        agregarle sus usuarios (nombre, email y contraseña de cada uno) — una empresa
-        puede tener varios usuarios levantando tickets.
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <Input label="Nombre" placeholder="Ej: Tomás Martínez Paisa" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+        <Input label="Email" type="email" placeholder="tomas.martinez@samply.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <Input label="Contraseña inicial" type="text" placeholder="Mínimo 6 caracteres" value={password} onChange={(e) => setPassword(e.target.value)} required />
       </div>
     </Modal>
   );
 }
 
-export function AdminClientesScreen() {
-  const [clientes, setClientes] = React.useState([]);
+export function AdminAgentesScreen() {
+  const [agentes, setAgentes] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState(null);
   const [search, setSearch] = React.useState('');
@@ -68,16 +77,15 @@ export function AdminClientesScreen() {
   const [createError, setCreateError] = React.useState(null);
   const [togglingId, setTogglingId] = React.useState(null);
   const [deletingId, setDeletingId] = React.useState(null);
-  const [clienteUsuarios, setClienteUsuarios] = React.useState(null); // empresa cuyos usuarios se están viendo
 
-  const loadClientes = React.useCallback(async () => {
+  const loadAgentes = React.useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch('/api/admin/clientes');
-      if (!res.ok) throw new Error('No se pudieron cargar los clientes');
+      const res = await fetch('/api/admin/agentes?todos=1');
+      if (!res.ok) throw new Error('No se pudieron cargar los agentes');
       const data = await res.json();
-      setClientes(data.clientes);
+      setAgentes(data.agentes);
     } catch (err) {
       setLoadError(err.message);
     } finally {
@@ -86,49 +94,46 @@ export function AdminClientesScreen() {
   }, []);
 
   React.useEffect(() => {
-    loadClientes();
-  }, [loadClientes]);
+    loadAgentes();
+  }, [loadAgentes]);
 
-  const filtered = clientes.filter((c) => !search || c.nombre.toLowerCase().includes(search.toLowerCase()));
+  const filtered = agentes.filter((a) => !search || `${a.nombre} ${a.email}`.toLowerCase().includes(search.toLowerCase()));
 
-  async function handleCreate(nombre) {
+  async function handleCreate(nuevo) {
     setCreating(true);
     setCreateError(null);
     try {
-      const res = await fetch('/api/admin/clientes', {
+      const res = await fetch('/api/admin/agentes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre }),
+        body: JSON.stringify(nuevo),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'No se pudo crear la empresa');
-      setClientes((c) => [...c, data.cliente].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      if (!res.ok) throw new Error(data.error || 'No se pudo crear el agente');
+      setAgentes((a) => [...a, data.agente].sort((x, y) => x.nombre.localeCompare(y.nombre)));
       setShowNew(false);
-      // Abrimos directo el modal de usuarios de la empresa recién creada —
-      // sin usuarios todavía, no puede loguearse nadie.
-      setClienteUsuarios(data.cliente);
+      return true;
     } catch (err) {
       setCreateError(err.message);
+      return false;
     } finally {
       setCreating(false);
     }
   }
 
-  async function handleToggleActivo(cliente) {
-    const accion = cliente.activo ? 'desactivar' : 'activar';
-    if (!window.confirm(`¿${accion === 'desactivar' ? 'Desactivar' : 'Activar'} a "${cliente.nombre}"? ${accion === 'desactivar' ? 'Ninguno de sus usuarios va a poder loguearse hasta que la reactives.' : ''}`)) {
-      return;
-    }
-    setTogglingId(cliente.id);
+  async function handleToggleActivo(agente) {
+    const accion = agente.activo ? 'desactivar' : 'activar';
+    if (!window.confirm(`¿${accion === 'desactivar' ? 'Desactivar' : 'Activar'} a "${agente.nombre}"?`)) return;
+    setTogglingId(agente.id);
     try {
-      const res = await fetch(`/api/admin/clientes/${cliente.id}`, {
+      const res = await fetch(`/api/admin/agentes/${agente.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activo: !cliente.activo }),
+        body: JSON.stringify({ activo: !agente.activo }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'No se pudo actualizar la empresa');
-      setClientes((cs) => cs.map((c) => (c.id === cliente.id ? { ...c, activo: data.cliente.activo } : c)));
+      if (!res.ok) throw new Error(data.error || 'No se pudo actualizar el agente');
+      setAgentes((as) => as.map((a) => (a.id === agente.id ? { ...a, activo: data.agente.activo } : a)));
     } catch (err) {
       window.alert(err.message);
     } finally {
@@ -136,20 +141,17 @@ export function AdminClientesScreen() {
     }
   }
 
-  async function handleDelete(cliente) {
-    const partes = [];
-    if (Number(cliente.usuarios_count) > 0) partes.push(`${cliente.usuarios_count} usuario(s)`);
-    if (Number(cliente.tickets_count) > 0) partes.push(`${cliente.tickets_count} ticket(s)`);
-    const aviso = partes.length
-      ? `Esto borra "${cliente.nombre}" PARA SIEMPRE, junto con ${partes.join(' y ')} — no hay vuelta atrás. Si preferís conservar el historial, usá "Desactivar" en vez de esto. ¿Eliminar de todas formas?`
-      : `¿Eliminar "${cliente.nombre}"? No tiene usuarios ni tickets todavía, así que no se pierde nada.`;
+  async function handleDelete(agente) {
+    const aviso = Number(agente.tickets_count) > 0
+      ? `"${agente.nombre}" está o estuvo asignado a ${agente.tickets_count} ticket(s) — no se van a borrar, solo van a dejar de tener a este agente en la lista. ¿Eliminar de todas formas?`
+      : `¿Eliminar a "${agente.nombre}"? No se puede deshacer.`;
     if (!window.confirm(aviso)) return;
-    setDeletingId(cliente.id);
+    setDeletingId(agente.id);
     try {
-      const res = await fetch(`/api/admin/clientes/${cliente.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/agentes/${agente.id}`, { method: 'DELETE' });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'No se pudo eliminar la empresa');
-      setClientes((cs) => cs.filter((c) => c.id !== cliente.id));
+      if (!res.ok) throw new Error(data.error || 'No se pudo eliminar el agente');
+      setAgentes((as) => as.filter((a) => a.id !== agente.id));
     } catch (err) {
       window.alert(err.message);
     } finally {
@@ -170,47 +172,42 @@ export function AdminClientesScreen() {
               onClick={() => setShowNew(true)}
               style={{ background: 'var(--samply-white)', color: 'var(--samply-blue)', border: '1px solid var(--samply-white)' }}
             >
-              Nueva empresa
+              Nuevo agente
             </Button>
           }
         >
-          Clientes
+          Agentes de soporte
         </SectionBanner>
 
         <div style={{ padding: 16 }}>
-          <Input icon="search" placeholder="Buscar por nombre de empresa" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input icon="search" placeholder="Buscar por nombre o email" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         {loadError ? (
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--samply-red)' }}>
-            {loadError} — <button onClick={loadClientes} style={{ color: 'var(--samply-blue)', border: 'none', background: 'none', cursor: 'pointer', textDecoration: 'underline' }}>reintentar</button>
+            {loadError} — <button onClick={loadAgentes} style={{ color: 'var(--samply-blue)', border: 'none', background: 'none', cursor: 'pointer', textDecoration: 'underline' }}>reintentar</button>
           </div>
         ) : loading ? (
-          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>Cargando clientes...</div>
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>Cargando agentes...</div>
         ) : (
           <DataTable
             dense
             rowKey="id"
-            onRowClick={(row) => setClienteUsuarios(row)}
             columns={[
-              { key: 'nombre', header: 'Empresa', strong: true, sortable: true },
-              {
-                key: 'usuarios_count', header: 'Usuarios',
-                render: (v) => <Badge tone={Number(v) === 0 ? 'warning' : 'neutral'} variant="soft">{v}</Badge>,
-              },
+              { key: 'nombre', header: 'Agente', strong: true, sortable: true },
+              { key: 'email', header: 'Email' },
               { key: 'tickets_count', header: 'Tickets', render: (v) => <Badge tone="neutral" variant="soft">{v}</Badge> },
               {
                 key: 'activo', header: 'Estado',
                 render: (v) => v
-                  ? <Badge tone="success" variant="soft">Activa</Badge>
-                  : <Badge tone="danger" variant="soft">Desactivada</Badge>,
+                  ? <Badge tone="success" variant="soft">Activo</Badge>
+                  : <Badge tone="danger" variant="soft">Desactivado</Badge>,
               },
-              { key: 'created_at', header: 'Cliente desde', muted: true, render: formatFecha },
+              { key: 'created_at', header: 'Desde', muted: true, render: formatFecha },
               {
-                key: 'acciones', header: '', width: 210,
+                key: 'acciones', header: '', width: 190,
                 render: (_, row) => (
                   <span onClick={(e) => e.stopPropagation()} style={{ display: 'inline-flex', gap: 6 }}>
-                    <Button variant="ghost" size="sm" onClick={() => setClienteUsuarios(row)}>Usuarios</Button>
                     <Button
                       variant={row.activo ? 'ghost' : 'secondary'}
                       size="sm"
@@ -236,24 +233,16 @@ export function AdminClientesScreen() {
         )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderTop: '1px solid var(--color-border)' }}>
-          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Mostrando {filtered.length} de {clientes.length} clientes</span>
+          <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Mostrando {filtered.length} de {agentes.length} agentes</span>
         </div>
       </Card>
 
-      <NuevaEmpresaModal
+      <NuevoAgenteModal
         open={showNew}
         onClose={() => setShowNew(false)}
         onCreate={handleCreate}
         submitting={creating}
         error={createError}
-      />
-
-      <ClienteUsuariosModal
-        cliente={clienteUsuarios}
-        onClose={() => {
-          setClienteUsuarios(null);
-          loadClientes(); // refresca el contador de usuarios en la tabla
-        }}
       />
     </div>
   );

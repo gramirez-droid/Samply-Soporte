@@ -50,3 +50,29 @@ export async function PATCH(req, { params }) {
 
   return NextResponse.json({ usuario: rows[0] });
 }
+
+export async function DELETE(req, { params }) {
+  const session = await getAgenteSessionFromRequest(req);
+  if (!session) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
+  const clienteId = Number(params.id);
+  const usuarioId = Number(params.usuarioId);
+  if (!Number.isInteger(clienteId) || !Number.isInteger(usuarioId)) {
+    return NextResponse.json({ error: 'Id inválido' }, { status: 400 });
+  }
+
+  // Borra al USUARIO puntual, no a la empresa — los tickets que había
+  // levantado quedan en la empresa (solo pierden el dato de "quién
+  // exactamente" los levantó, por la referencia SET NULL en el schema).
+  const { rows } = await query(
+    'DELETE FROM usuarios_cliente WHERE id = $1 AND cliente_id = $2 RETURNING id',
+    [usuarioId, clienteId]
+  );
+  if (!rows[0]) {
+    return NextResponse.json({ error: 'Usuario no encontrado' }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

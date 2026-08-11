@@ -176,6 +176,30 @@ curl -X PATCH http://localhost:3000/api/tickets/1 \
   -d '{"estado":"Asignado"}'
 ```
 
+## Eliminar de verdad (agentes, empresas, usuarios) — no solo desactivar
+
+Sumado a "Activar/Desactivar" (que ya existía y no borra nada), ahora hay un
+botón **"Eliminar"** de verdad en:
+- **Agentes** (nav nuevo "Agentes" — antes no había ninguna pantalla para
+  crear/gestionar agentes, solo existían los 3 que cargué por script).
+- **Empresas**, en la tabla de "Clientes".
+- **Usuarios** puntuales, dentro del modal "Usuarios" de cada empresa.
+
+Qué pasa exactamente al eliminar (probado con Postgres real, no solo
+compilado):
+- **Agente**: se borra de verdad. Si ya había dejado mensajes en algún chat
+  o quedado asignado a tickets, esos tickets y mensajes **no se pierden** —
+  solo dejan de mostrar su nombre (el mensaje sigue ahí). El aviso antes de
+  borrar te dice cuántos tickets tiene o tuvo asignados.
+- **Usuario de una empresa**: se borra de verdad. Los tickets que había
+  levantado **se quedan en la empresa** (el resto de la empresa los sigue
+  viendo) — solo pierden el dato de "quién exactamente" los creó.
+- **Empresa completa**: esto sí es destructivo de punta a punta — se borran
+  también todos sus usuarios y todos sus tickets (con su historial,
+  respuestas y adjuntos). El aviso antes de confirmar te muestra cuántos
+  usuarios y tickets tiene, para que no sea una sorpresa. Si preferís no
+  perder ese historial, usá "Desactivar" en vez de "Eliminar".
+
 ## Empresas con varios usuarios (cambio de modelo)
 
 **Esto reemplaza el modelo anterior** (una empresa = un solo login). Ahora:

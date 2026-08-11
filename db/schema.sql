@@ -233,3 +233,32 @@ CREATE INDEX IF NOT EXISTS idx_tickets_agentes_agente ON tickets_agentes (agente
 INSERT INTO tickets_agentes (ticket_id, agente_id)
 SELECT id, agente_id FROM tickets WHERE agente_id IS NOT NULL
 ON CONFLICT DO NOTHING;
+
+-- Para poder BORRAR un agente o un usuario de cliente de verdad (no solo
+-- desactivarlo) sin que se rompa el historial: si se borra a alguien que ya
+-- dejó un mensaje o quedó asignado a un ticket, esas filas se quedan (no se
+-- pierde el ticket ni la conversación) pero la referencia pasa a NULL — la
+-- UI lo muestra como "Agente eliminado" / "Usuario eliminado" en vez de
+-- romper. Por default Postgres bloquea el borrado (NO ACTION); lo cambiamos
+-- a SET NULL en las 5 relaciones que apuntan a agentes/usuarios_cliente
+-- (excepto tickets_agentes, que ya es ON DELETE CASCADE a propósito: ahí sí
+-- tiene sentido que la fila de asignación desaparezca del todo).
+ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_agente_id_fkey;
+ALTER TABLE tickets ADD CONSTRAINT tickets_agente_id_fkey
+  FOREIGN KEY (agente_id) REFERENCES agentes(id) ON DELETE SET NULL;
+
+ALTER TABLE tickets DROP CONSTRAINT IF EXISTS tickets_usuario_id_fkey;
+ALTER TABLE tickets ADD CONSTRAINT tickets_usuario_id_fkey
+  FOREIGN KEY (usuario_id) REFERENCES usuarios_cliente(id) ON DELETE SET NULL;
+
+ALTER TABLE tickets_adjuntos DROP CONSTRAINT IF EXISTS tickets_adjuntos_agente_id_fkey;
+ALTER TABLE tickets_adjuntos ADD CONSTRAINT tickets_adjuntos_agente_id_fkey
+  FOREIGN KEY (agente_id) REFERENCES agentes(id) ON DELETE SET NULL;
+
+ALTER TABLE tickets_respuestas DROP CONSTRAINT IF EXISTS tickets_respuestas_agente_id_fkey;
+ALTER TABLE tickets_respuestas ADD CONSTRAINT tickets_respuestas_agente_id_fkey
+  FOREIGN KEY (agente_id) REFERENCES agentes(id) ON DELETE SET NULL;
+
+ALTER TABLE tickets_respuestas DROP CONSTRAINT IF EXISTS tickets_respuestas_usuario_id_fkey;
+ALTER TABLE tickets_respuestas ADD CONSTRAINT tickets_respuestas_usuario_id_fkey
+  FOREIGN KEY (usuario_id) REFERENCES usuarios_cliente(id) ON DELETE SET NULL;

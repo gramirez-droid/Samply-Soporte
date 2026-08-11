@@ -21,6 +21,7 @@ export function ClienteUsuariosModal({ cliente, onClose }) {
   const [creating, setCreating] = React.useState(false);
   const [createError, setCreateError] = React.useState(null);
   const [togglingId, setTogglingId] = React.useState(null);
+  const [deletingId, setDeletingId] = React.useState(null);
 
   const cargar = React.useCallback(() => {
     if (!cliente) return;
@@ -88,6 +89,21 @@ export function ClienteUsuariosModal({ cliente, onClose }) {
     }
   }
 
+  async function eliminar(usuario) {
+    if (!window.confirm(`¿Eliminar a "${usuario.nombre}"? Si había levantado tickets, esos tickets se quedan en la empresa (solo pierden el dato de quién los creó puntualmente). No se puede deshacer.`)) return;
+    setDeletingId(usuario.id);
+    try {
+      const res = await fetch(`/api/admin/clientes/${cliente.id}/usuarios/${usuario.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo eliminar el usuario');
+      setUsuarios((us) => us.filter((u) => u.id !== usuario.id));
+    } catch (err) {
+      window.alert(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <Modal
       open={!!cliente}
@@ -121,9 +137,17 @@ export function ClienteUsuariosModal({ cliente, onClose }) {
                     variant={u.activo ? 'ghost' : 'secondary'}
                     size="sm"
                     onClick={() => toggleActivo(u)}
-                    disabled={togglingId === u.id}
+                    disabled={togglingId === u.id || deletingId === u.id}
                   >
                     {togglingId === u.id ? '...' : u.activo ? 'Desactivar' : 'Activar'}
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => eliminar(u)}
+                    disabled={deletingId === u.id || togglingId === u.id}
+                  >
+                    {deletingId === u.id ? '...' : 'Eliminar'}
                   </Button>
                 </div>
               </div>

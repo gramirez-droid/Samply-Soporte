@@ -8,6 +8,7 @@ import { Icon } from '@/components/ds/Icon';
 const NAV = [
   { id: 'tickets', label: 'Tickets', icon: 'message' },
   { id: 'clientes', label: 'Clientes', icon: 'users' },
+  { id: 'agentes', label: 'Agentes', icon: 'users' },
   { id: 'manuales', label: 'Centro de ayuda', icon: 'download' },
 ];
 
