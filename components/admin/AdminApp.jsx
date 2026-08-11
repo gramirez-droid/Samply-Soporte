@@ -5,6 +5,7 @@ import { AdminTicketsScreen } from './AdminTicketsScreen';
 import { AdminClientesScreen } from './AdminClientesScreen';
 import { AdminManualesScreen } from './AdminManualesScreen';
 import { AdminAgentesScreen } from './AdminAgentesScreen';
+import { AdminNotificacionesScreen } from './AdminNotificacionesScreen';
 
 export function AdminApp({ agenteNombre }) {
   const [nav, setNav] = React.useState('tickets');
@@ -14,6 +15,7 @@ export function AdminApp({ agenteNombre }) {
       {nav === 'clientes' ? <AdminClientesScreen />
         : nav === 'manuales' ? <AdminManualesScreen />
         : nav === 'agentes' ? <AdminAgentesScreen />
+        : nav === 'notificaciones' ? <AdminNotificacionesScreen />
         : <AdminTicketsScreen />}
     </AdminShell>
   );

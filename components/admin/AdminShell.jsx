@@ -10,6 +10,7 @@ const NAV = [
   { id: 'clientes', label: 'Clientes', icon: 'users' },
   { id: 'agentes', label: 'Agentes', icon: 'users' },
   { id: 'manuales', label: 'Centro de ayuda', icon: 'download' },
+  { id: 'notificaciones', label: 'Notificaciones', icon: 'message' },
 ];
 
 export function AdminShell({ agenteNombre, active, onSelect, children }) {

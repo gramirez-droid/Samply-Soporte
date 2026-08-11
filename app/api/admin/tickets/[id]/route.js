@@ -3,6 +3,7 @@ import { query } from '@/db/client';
 import { getAgenteSessionFromRequest } from '@/lib/auth';
 import { crearTicketEnNotion } from '@/lib/notion';
 import { ticketAdminCompleto } from '@/lib/tickets';
+import { notificarCambioEstadoAlCliente } from '@/lib/email';
 
 const ESTADOS = ['Nuevo', 'Asignado', 'En progreso', 'Esperando cliente', 'Resuelto', 'Cerrado'];
 const PRIORIDADES = ['Baja', 'Media', 'Alta', 'Urgente'];
@@ -40,7 +41,7 @@ export async function PATCH(req, { params }) {
   // ticket puede tener varios agentes a la vez, no uno solo.
   const { rows: actualRows } = await query(
     `SELECT codigo, estado, prioridad, primera_respuesta_en, resuelto_en, notion_page_id, ai_resumen,
-            asunto, categoria, modulo, cliente_id
+            asunto, categoria, modulo, cliente_id, usuario_id
      FROM tickets WHERE id = $1`,
     [id]
   );
@@ -91,6 +92,26 @@ export async function PATCH(req, { params }) {
        VALUES ($1, $2, $3, $4)`,
       [id, campo, valorAnterior, valorNuevo]
     );
+  }
+
+  // Si el estado cambió de verdad (no solo se re-envió el mismo valor) y el
+  // ticket tiene un usuario asociado, le avisamos por email. Si falla, no
+  // rompe la actualización del ticket — solo se loguea.
+  const estadoCambio = cambios.some(([campo]) => campo === 'estado');
+  if (estadoCambio && actual.usuario_id) {
+    const { rows: usuarioRows } = await query('SELECT email FROM usuarios_cliente WHERE id = $1', [actual.usuario_id]);
+    const email = usuarioRows[0]?.email;
+    if (email) {
+      const notif = await notificarCambioEstadoAlCliente(
+        { codigo: actual.codigo, asunto: actual.asunto },
+        email,
+        nuevoEstado,
+        actual.estado
+      ).catch((err) => ({ enviado: false, motivo: err.message }));
+      if (!notif.enviado) {
+        console.log('[email] No se notificó el cambio de estado:', notif.motivo);
+      }
+    }
   }
 
   const actualizado = await ticketAdminCompleto(id);
