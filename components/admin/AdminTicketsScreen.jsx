@@ -146,7 +146,10 @@ export function AdminTicketsScreen() {
       const res = await fetch('/api/admin/notion/sync', { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo sincronizar con Notion');
-      window.alert(`Sincronizado — ${data.actualizados} ticket(s) actualizados desde Notion.`);
+      window.alert(
+        `Sincronizado — ${data.actualizados} ticket(s) marcados Resuelto desde Notion, ` +
+        `${data.assigneesActualizados} ticket(s) con el agente actualizado en Notion.`
+      );
       loadTickets();
     } catch (err) {
       window.alert(err.message);

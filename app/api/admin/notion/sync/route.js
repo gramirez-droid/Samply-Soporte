@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAgenteSessionFromRequest } from '@/lib/auth';
-import { sincronizarResueltosDesdeNotion } from '@/lib/tickets';
+import { sincronizarResueltosDesdeNotion, sincronizarAssigneesHaciaNotion } from '@/lib/tickets';
 import { notionConfigurado } from '@/lib/notion';
 
 export async function POST(req) {
@@ -17,8 +17,12 @@ export async function POST(req) {
   }
 
   try {
+    // Dos direcciones en un solo click: primero empuja los agentes
+    // asignados hacia Notion (Samply → Notion), después trae los que ya
+    // están en "Done" y los marca Resuelto acá (Notion → Samply).
+    const assigneesActualizados = await sincronizarAssigneesHaciaNotion();
     const actualizados = await sincronizarResueltosDesdeNotion();
-    return NextResponse.json({ actualizados });
+    return NextResponse.json({ actualizados, assigneesActualizados });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

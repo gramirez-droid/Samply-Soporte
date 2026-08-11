@@ -62,9 +62,15 @@ export async function PATCH(req, { params }) {
     try {
       const { rows: clienteRows } = await query('SELECT nombre FROM clientes WHERE id = $1', [actual.cliente_id]);
       const clienteNombre = clienteRows[0]?.nombre || '';
+      const { rows: agentesRows } = await query(
+        `SELECT a.nombre FROM tickets_agentes ta JOIN agentes a ON a.id = ta.agente_id WHERE ta.ticket_id = $1`,
+        [id]
+      );
+      const agentesNombres = agentesRows.map((r) => r.nombre);
       const creado = await crearTicketEnNotion(
         { id, codigo: actual.codigo, asunto: actual.asunto, categoria: actual.categoria, modulo: actual.modulo, prioridad: nuevaPrioridad, ai_resumen: actual.ai_resumen },
-        clienteNombre
+        clienteNombre,
+        agentesNombres
       );
       if (creado) notionPageId = creado;
     } catch (err) {
