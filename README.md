@@ -234,11 +234,16 @@ Entrá a `/admin/login`. A diferencia del panel de cliente:
   del PDF. Lo que se crea/edita ahí aparece de inmediato en el Centro de
   Ayuda del panel de cliente. Sigue siendo por URL, no upload real, mismo
   motivo que los adjuntos de tickets.
-- En el detalle de cada ticket hay una sección **"Respuestas al cliente"**:
-  el staff escribe una devolución (texto libre), que queda visible tanto ahí
-  como en el panel del cliente (sección de solo lectura "Respuestas del
-  equipo de soporte" en su propio modal de detalle), y dispara un email al
-  cliente avisándole que tiene una respuesta nueva.
+- En el detalle de cada ticket hay una sección **"Conversación"** — un chat
+  de verdad, en orden cronológico, donde **tanto el staff como el cliente
+  pueden escribir** (ya no es de un solo sentido). Cada mensaje dispara un
+  email a la otra parte: si escribe el staff, le avisa al cliente; si
+  escribe el cliente, le avisa al staff (a `ADMIN_NOTIFICATION_EMAIL`).
+  Probado de punta a punta: cliente → staff → cliente, y ambos lados ven
+  exactamente el mismo hilo. Bonus: si el ticket estaba en "Esperando
+  cliente" y el cliente responde, pasa solo a "En progreso" (queda
+  registrado en el historial) — así no se pierde que hay algo nuevo para
+  revisar.
 
 - Un ticket puede tener **varios agentes** trabajando en él a la vez — no
   es un dropdown que reemplaza al agente, es una lista: agregás y sacás

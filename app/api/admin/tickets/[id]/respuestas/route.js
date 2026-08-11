@@ -15,9 +15,10 @@ export async function GET(req, { params }) {
   }
 
   const { rows } = await query(
-    `SELECT r.id, r.mensaje, r.created_at, a.nombre AS agente_nombre
+    `SELECT r.id, r.mensaje, r.created_at, a.nombre AS agente_nombre, uc.nombre AS usuario_nombre
      FROM tickets_respuestas r
      LEFT JOIN agentes a ON a.id = r.agente_id
+     LEFT JOIN usuarios_cliente uc ON uc.id = r.usuario_id
      WHERE r.ticket_id = $1
      ORDER BY r.created_at ASC`,
     [id]
@@ -49,11 +50,12 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: 'El mensaje no puede estar vacío' }, { status: 400 });
   }
 
-  // Traemos el ticket + email del cliente para poder mandar la notificación.
+  // El email del cliente vive en usuarios_cliente (no en clientes) — le
+  // avisamos puntualmente a quien levantó ESTE ticket, no a toda la empresa.
   const { rows: ticketRows } = await query(
-    `SELECT t.id, t.codigo, t.asunto, c.email AS cliente_email
+    `SELECT t.id, t.codigo, t.asunto, uc.email AS usuario_email
      FROM tickets t
-     JOIN clientes c ON c.id = t.cliente_id
+     LEFT JOIN usuarios_cliente uc ON uc.id = t.usuario_id
      WHERE t.id = $1`,
     [id]
   );
@@ -69,17 +71,19 @@ export async function POST(req, { params }) {
     [id, session.agenteId, mensaje]
   );
 
-  const respuesta = { ...rows[0], agente_nombre: session.nombre };
+  const respuesta = { ...rows[0], agente_nombre: session.nombre, usuario_nombre: null };
 
   // Igual que con los emails de creación de ticket: esperamos el envío para
   // que no se corte a mitad de camino en serverless, pero si falla no
   // rompe la creación de la respuesta.
-  const notif = await notificarRespuestaAlCliente(ticket, ticket.cliente_email, mensaje, session.nombre).catch((err) => ({
-    enviado: false,
-    motivo: err.message,
-  }));
-  if (!notif.enviado) {
-    console.log('[email] No se notificó al cliente de la respuesta:', notif.motivo);
+  if (ticket.usuario_email) {
+    const notif = await notificarRespuestaAlCliente(ticket, ticket.usuario_email, mensaje, session.nombre).catch((err) => ({
+      enviado: false,
+      motivo: err.message,
+    }));
+    if (!notif.enviado) {
+      console.log('[email] No se notificó al cliente de la respuesta:', notif.motivo);
+    }
   }
 
   return NextResponse.json({ respuesta }, { status: 201 });

@@ -194,10 +194,11 @@ CREATE TABLE IF NOT EXISTS manuales (
 CREATE INDEX IF NOT EXISTS idx_manuales_modulo ON manuales (modulo);
 CREATE INDEX IF NOT EXISTS idx_manuales_rol    ON manuales (rol);
 
--- Respuestas del staff al cliente en un ticket — la "devolución" que pide
--- Gonzalo: un mensaje visible para el cliente en su panel, con email de
--- aviso. Es de un solo sentido (staff → cliente) por ahora; el cliente no
--- responde desde la plataforma todavía.
+-- Hilo de conversación del ticket — tipo chat, en orden cronológico.
+-- Cada fila la escribió el staff (agente_id) O un usuario del cliente
+-- (usuario_id), nunca ambos. Dispara email a la otra parte según quién
+-- escribió (si escribe el staff, le avisa al cliente; si escribe el
+-- cliente, le avisa al staff).
 CREATE TABLE IF NOT EXISTS tickets_respuestas (
   id          SERIAL PRIMARY KEY,
   ticket_id   INTEGER NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
@@ -207,6 +208,10 @@ CREATE TABLE IF NOT EXISTS tickets_respuestas (
 );
 
 CREATE INDEX IF NOT EXISTS idx_respuestas_ticket ON tickets_respuestas (ticket_id);
+
+-- Por si ya tenías la tabla creada de antes de que el cliente pudiera
+-- responder (era de un solo sentido: staff → cliente).
+ALTER TABLE tickets_respuestas ADD COLUMN IF NOT EXISTS usuario_id INTEGER REFERENCES usuarios_cliente(id);
 
 -- Un ticket puede tener VARIOS agentes trabajando en él (no solo uno) — es
 -- una relación muchos a muchos, no la columna tickets.agente_id de antes

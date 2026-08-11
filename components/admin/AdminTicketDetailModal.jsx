@@ -12,18 +12,13 @@ import {
   PRIORIDADES,
   slaEstado,
   formatDuracion,
+  formatFechaHora,
   TTO_LIMITE_HORAS,
   TTR_LIMITE_HORAS,
 } from '@/components/support/constants';
+import { RespuestasChat } from '@/components/support/RespuestasChat';
 
 const CAMPO_LABEL = { estado: 'Estado', prioridad: 'Prioridad', agente: 'Agente asignado' };
-
-function formatFechaHora(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
 
 function SlaMetric({ titulo, limiteHoras, sla, etiquetaHecho, etiquetaEnCurso }) {
   const color = sla.cumplido ? 'var(--samply-green)' : 'var(--samply-red)';
@@ -164,77 +159,15 @@ function AdjuntosTicket({ ticketId }) {
 }
 
 function RespuestasTicket({ ticketId }) {
-  const [respuestas, setRespuestas] = React.useState(null);
-  const [mensaje, setMensaje] = React.useState('');
-  const [enviando, setEnviando] = React.useState(false);
-  const [error, setError] = React.useState(null);
-
-  const cargar = React.useCallback(() => {
-    fetch(`/api/admin/tickets/${ticketId}/respuestas`)
-      .then((res) => res.json())
-      .then((data) => setRespuestas(data.respuestas || []))
-      .catch(() => setRespuestas([]));
-  }, [ticketId]);
-
-  React.useEffect(() => {
-    cargar();
-  }, [cargar]);
-
-  async function enviar() {
-    if (!mensaje.trim()) return;
-    setEnviando(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/tickets/${ticketId}/respuestas`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensaje }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'No se pudo enviar la respuesta');
-      setMensaje('');
-      cargar();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setEnviando(false);
-    }
-  }
-
   return (
-    <div>
-      {respuestas === null ? (
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Cargando respuestas...</div>
-      ) : respuestas.length === 0 ? (
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 10 }}>Todavía no le dejaste ninguna respuesta al cliente.</div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
-          {respuestas.map((r) => (
-            <div key={r.id} style={{ padding: '8px 12px', background: 'var(--color-ai-bg)', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--samply-blue)' }}>
-              <div style={{ fontSize: 14, lineHeight: 'var(--lh-normal)' }}>{r.mensaje}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                {r.agente_nombre || 'Staff'} — {formatFechaHora(r.created_at)}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <textarea
-          rows={3}
-          value={mensaje}
-          onChange={(e) => setMensaje(e.target.value)}
-          placeholder="Escribí una devolución para el cliente — le va a llegar por email y va a quedar visible en su panel"
-          style={{ fontFamily: 'var(--font-sans)', fontSize: 14, padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid transparent', background: '#F1F5FB', resize: 'vertical', color: 'var(--text-primary)' }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button variant="primary" size="sm" icon="message" onClick={enviar} disabled={enviando || !mensaje.trim()}>
-            {enviando ? 'Enviando...' : 'Enviar respuesta al cliente'}
-          </Button>
-        </div>
-        {error && <div style={{ fontSize: 12, color: 'var(--samply-red)' }}>{error}</div>}
-      </div>
-    </div>
+    <RespuestasChat
+      apiBase="/api/admin/tickets"
+      ticketId={ticketId}
+      esMio={(r) => !!r.agente_nombre}
+      placeholderVacio="Todavía no hay conversación en este ticket."
+      placeholderEnviar="Escribí una respuesta — le va a llegar por email al cliente y va a quedar visible en su panel"
+      etiquetaBoton="Enviar al cliente"
+    />
   );
 }
 
@@ -400,7 +333,7 @@ export function AdminTicketDetailModal({ ticket, agentes, onClose, onUpdate, onA
 
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>
-          Respuestas al cliente
+          Conversación con el cliente
         </div>
         <RespuestasTicket ticketId={ticket.dbId} />
       </div>

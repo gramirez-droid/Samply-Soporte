@@ -26,6 +26,14 @@ export function formatFecha(iso) {
   return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
+/** Igual que formatFecha, pero con hora — usado en historial y en el chat de respuestas. */
+export function formatFechaHora(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
 /** Horas transcurridas entre dos fechas ISO (null si falta alguna). */
 export function horasEntre(desdeIso, hastaIso) {
   if (!desdeIso || !hastaIso) return null;
