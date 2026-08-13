@@ -379,13 +379,39 @@ Lo que sí probé: que el resto del sistema sigue funcionando sin romperse
 mientras Notion no esté configurado. Apenas tengan la key + el
 `NOTION_DATABASE_ID`, probamos el flujo real de punta a punta.
 
+## Upload de archivos real (PDF/JPG/PNG) — con Netlify Blobs
+
+Ya no es solo links — se puede **subir el archivo de verdad** en dos lugares:
+- **Centro de ayuda**: al crear/editar un manual, botón "Subir archivo" (PDF).
+- **Adjuntos de un ticket** (panel de staff): botón "Subir PDF o foto"
+  (acepta PDF, JPG y PNG).
+
+Los dos siguen teniendo también la opción de **pegar un link** (Drive,
+etc.) como antes, por si prefieren eso a veces.
+
+Usa [Netlify Blobs](https://docs.netlify.com/build/data-and-storage/netlify-blobs/) —
+no hace falta ninguna cuenta ni API key nueva: como el sitio ya corre en
+Netlify, se autentica solo dentro de las funciones serverless. **Esto es
+lo único de esta lista que no pude probar de punta a punta en esta
+sesión** — Netlify Blobs necesita el contexto real de Netlify para
+autenticarse, que no está disponible en mi entorno de pruebas local. Lo
+que sí probé y confirmé:
+- Las validaciones (tipo de archivo, tamaño máximo 4.5 MB) funcionan
+  bien y devuelven mensajes claros.
+- Si el storage falla, da un error prolijo (400) en vez de romper el
+  resto de la app (probado).
+
+Endpoints nuevos: `POST /api/admin/upload` (sube el archivo, devuelve la
+URL) y `GET /api/files/[...key]` (público, sirve el archivo — la key es
+un UUID no adivinable, mismo nivel de seguridad que un link de Drive).
+
+Probalo apenas lo subas — si algo no anda, lo vemos con el mismo método
+que usamos para Notion: logs de Netlify en tiempo real.
+
 ## Próximos pasos (todavía no construidos)
 
 - **Cron real** para el auto-cierre de tickets y la sync de Notion (hoy
   ambos son "perezosos": se disparan al leer/pedir, no en background).
-- **Upload de archivos real** (Vercel Blob o S3) para los adjuntos — hoy
-
-  son solo links.
 - **Análisis con Claude API**: al crear el ticket, llamar a la API para
   generar el `ai_resumen` que ya se muestra en el modal de detalle.
 
