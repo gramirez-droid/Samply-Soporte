@@ -9,6 +9,7 @@ import { DataTable } from '@/components/ds/DataTable';
 import { Badge } from '@/components/ds/Badge';
 import { Modal } from '@/components/ds/Modal';
 import { IconButton } from '@/components/ds/IconButton';
+import { SubirArchivoField } from './SubirArchivoField';
 
 const MODULOS = ['App móvil (Preventa)', 'Televentas', 'B2B eCommerce', 'Inventarios', 'Facturación', 'Reportería / KPIs'];
 const ROLES = ['Todos los perfiles', 'Administrador', 'Vendedor / Preventista', 'Cobrador', 'Entregador'];
@@ -95,11 +96,14 @@ function ManualModal({ open, onClose, onSave, submitting, error, manual }) {
           <Select label="Módulo" placeholder="Seleccionar" options={MODULOS} value={form.modulo} onChange={set('modulo')} required />
           <Select label="Perfil" options={ROLES} value={form.rol} onChange={set('rol')} />
         </div>
-        <Input label="URL del PDF" placeholder="https://... o /manuales/archivo.pdf" value={form.archivoUrl} onChange={set('archivoUrl')} required />
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          Por ahora es un link (Drive, o un PDF que subiste a <code>public/manuales/</code>) — todavía no hay
-          upload de archivo real desde acá, hace falta configurar un storage primero.
-        </div>
+        <SubirArchivoField
+          label="PDF del manual"
+          carpeta="manuales"
+          accept="application/pdf"
+          urlActual={form.archivoUrl}
+          onSubido={(url) => setForm((f) => ({ ...f, archivoUrl: url }))}
+          onUrlManual={(url) => setForm((f) => ({ ...f, archivoUrl: url }))}
+        />
       </div>
     </Modal>
   );
