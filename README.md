@@ -381,32 +381,43 @@ mientras Notion no esté configurado. Apenas tengan la key + el
 
 ## Upload de archivos real (PDF/JPG/PNG) — con Netlify Blobs
 
-Ya no es solo links — se puede **subir el archivo de verdad** en dos lugares:
+Se puede **subir el archivo de verdad** en tres lugares:
 - **Centro de ayuda**: al crear/editar un manual, botón "Subir archivo" (PDF).
-- **Adjuntos de un ticket** (panel de staff): botón "Subir PDF o foto"
-  (acepta PDF, JPG y PNG).
+- **Adjuntos de un ticket** (panel de staff): botón "Subir PDF o foto".
+- **"Adjuntar captura"** al crear un ticket nuevo (panel de cliente) — este
+  campo ya existía antes de esta sesión, pero estaba deshabilitado con el
+  texto "Disponible en una fase siguiente"; ahora sube de verdad.
 
-Los dos siguen teniendo también la opción de **pegar un link** (Drive,
-etc.) como antes, por si prefieren eso a veces.
+Los tres siguen teniendo también la opción de **pegar un link** (Drive,
+etc.), salvo el de "Adjuntar captura" del cliente (ese es solo upload).
+
+**Bug encontrado y corregido en esta sesión:** la primera versión servía
+los archivos en `/api/files/[key].pdf` (la key en el path de la URL) —
+Netlify, al ver una URL que termina en una extensión conocida
+(`.pdf`, `.jpg`), la trataba como si fuera un archivo estático y
+devolvía 404 sin llegar a ejecutar la función. Se cambió a
+`/api/files?key=...` (la key como query param, no en el path) — así la
+URL no "parece" un archivo estático y Netlify la deja pasar a la función
+como corresponde.
 
 Usa [Netlify Blobs](https://docs.netlify.com/build/data-and-storage/netlify-blobs/) —
-no hace falta ninguna cuenta ni API key nueva: como el sitio ya corre en
-Netlify, se autentica solo dentro de las funciones serverless. **Esto es
-lo único de esta lista que no pude probar de punta a punta en esta
-sesión** — Netlify Blobs necesita el contexto real de Netlify para
-autenticarse, que no está disponible en mi entorno de pruebas local. Lo
-que sí probé y confirmé:
-- Las validaciones (tipo de archivo, tamaño máximo 4.5 MB) funcionan
-  bien y devuelven mensajes claros.
-- Si el storage falla, da un error prolijo (400) en vez de romper el
-  resto de la app (probado).
+no hace falta ninguna cuenta ni API key nueva. **Sigue siendo lo único que
+no pude probar de punta a punta desde mi entorno local** (necesita el
+contexto real de Netlify) — lo que sí probé:
+- Las validaciones (tipo de archivo, tamaño máximo 4.5 MB) devuelven
+  mensajes claros.
+- El circuito completo de adjuntos del cliente (crear ticket → guardar
+  adjunto → verlo tanto el cliente como el staff, con el ownership
+  correcto) — probado con Postgres real, simulando la URL que devolvería
+  el upload.
+- Que el resto de la app sigue funcionando si el storage falla.
 
-Endpoints nuevos: `POST /api/admin/upload` (sube el archivo, devuelve la
-URL) y `GET /api/files/[...key]` (público, sirve el archivo — la key es
-un UUID no adivinable, mismo nivel de seguridad que un link de Drive).
+Endpoints: `POST /api/admin/upload` y `POST /api/upload` (mismo storage,
+uno para staff y otro para cliente), y `GET /api/files?key=...` (público,
+sirve el archivo — la key es un UUID no adivinable).
 
-Probalo apenas lo subas — si algo no anda, lo vemos con el mismo método
-que usamos para Notion: logs de Netlify en tiempo real.
+Probalo apenas lo subas — con el mismo método que usamos para Notion:
+logs de Netlify en tiempo real.
 
 ## Próximos pasos (todavía no construidos)
 

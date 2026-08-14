@@ -169,6 +169,11 @@ CREATE TABLE IF NOT EXISTS tickets_adjuntos (
 
 CREATE INDEX IF NOT EXISTS idx_adjuntos_ticket ON tickets_adjuntos (ticket_id);
 
+-- Un adjunto lo puede subir el cliente (al crear el ticket) o el staff
+-- (después, respondiendo) — agente_id y usuario_id son mutuamente
+-- excluyentes, igual que en tickets_respuestas.
+ALTER TABLE tickets_adjuntos ADD COLUMN IF NOT EXISTS usuario_id INTEGER REFERENCES usuarios_cliente(id) ON DELETE SET NULL;
+
 -- Centro de Ayuda — manuales en PDF, globales (no por cliente: son guías de
 -- uso del producto, no datos de cuenta). Se cargan por script/seed por ahora
 -- (ver db/seed_manuales.mjs); no hay upload desde la UI en esta fase porque
