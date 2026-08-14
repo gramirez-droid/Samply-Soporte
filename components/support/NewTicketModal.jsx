@@ -4,7 +4,6 @@ import { Modal } from '@/components/ds/Modal';
 import { Button } from '@/components/ds/Button';
 import { Input } from '@/components/ds/Input';
 import { Select } from '@/components/ds/Select';
-import { AiInsight } from '@/components/ds/AiInsight';
 import { CATEGORIAS, MODULOS, PRIORIDADES } from './constants';
 
 const EMPTY_FORM = { categoria: '', modulo: '', asunto: '', desc: '', prioridad: 'Media' };
@@ -131,9 +130,6 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
           {errorAdjunto && <span style={{ fontSize: 12, color: 'var(--samply-red)' }}>{errorAdjunto}</span>}
         </div>
       </div>
-      <AiInsight icon="sparkles" title="Qué pasa después">
-        Al crear el ticket queda guardado y disponible en tu panel. El análisis automático con IA y la sincronización con Notion se activan en las próximas fases.
-      </AiInsight>
     </Modal>
   );
 }

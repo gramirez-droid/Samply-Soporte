@@ -4,7 +4,6 @@ import { Modal } from '@/components/ds/Modal';
 import { Button } from '@/components/ds/Button';
 import { Select } from '@/components/ds/Select';
 import { Input } from '@/components/ds/Input';
-import { AiInsight } from '@/components/ds/AiInsight';
 import { Icon } from '@/components/ds/Icon';
 import { Badge } from '@/components/ds/Badge';
 import {
@@ -362,14 +361,6 @@ export function AdminTicketDetailModal({ ticket, agentes, onClose, onUpdate, onA
         </div>
         <div style={{ fontSize: 14, lineHeight: 'var(--lh-normal)' }}>{ticket.desc || 'Sin descripción.'}</div>
       </div>
-
-      {ticket.ai ? (
-        <AiInsight agent="Soporte" title="Resumen del análisis">{ticket.ai}</AiInsight>
-      ) : (
-        <AiInsight icon="sparkles" title="Análisis pendiente">
-          Este ticket todavía no fue analizado por IA — eso se activa en la Fase 2.
-        </AiInsight>
-      )}
 
       <div style={{ marginTop: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>

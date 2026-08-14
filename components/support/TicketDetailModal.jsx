@@ -2,7 +2,6 @@
 import React from 'react';
 import { Modal } from '@/components/ds/Modal';
 import { Button } from '@/components/ds/Button';
-import { AiInsight } from '@/components/ds/AiInsight';
 import { Icon } from '@/components/ds/Icon';
 import { stateBadge, priorityBadge } from './badges';
 import { slaEstado, formatDuracion, formatFechaHora, TTO_LIMITE_HORAS, TTR_LIMITE_HORAS } from './constants';
@@ -187,14 +186,6 @@ export function TicketDetailModal({ ticket, onClose }) {
         </div>
         <div style={{ fontSize: 14, lineHeight: 'var(--lh-normal)' }}>{ticket.desc || 'Sin descripción.'}</div>
       </div>
-
-      {ticket.ai ? (
-        <AiInsight agent="Soporte" title="Resumen del análisis">{ticket.ai}</AiInsight>
-      ) : (
-        <AiInsight icon="sparkles" title="Análisis pendiente">
-          Este ticket todavía no fue analizado por IA — eso se activa en la Fase 2.
-        </AiInsight>
-      )}
 
       <AdjuntosSeccion ticketId={ticket.dbId} />
 
