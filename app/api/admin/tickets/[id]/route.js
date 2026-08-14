@@ -41,7 +41,7 @@ export async function PATCH(req, { params }) {
   // ticket puede tener varios agentes a la vez, no uno solo.
   const { rows: actualRows } = await query(
     `SELECT codigo, estado, prioridad, primera_respuesta_en, resuelto_en, notion_page_id, ai_resumen,
-            asunto, categoria, modulo, cliente_id, usuario_id
+            asunto, descripcion, categoria, modulo, cliente_id, usuario_id
      FROM tickets WHERE id = $1`,
     [id]
   );
@@ -67,10 +67,15 @@ export async function PATCH(req, { params }) {
         [id]
       );
       const agentesNombres = agentesRows.map((r) => r.nombre);
+      const { rows: adjuntosRows } = await query(
+        `SELECT nombre, url FROM tickets_adjuntos WHERE ticket_id = $1 ORDER BY created_at`,
+        [id]
+      );
       const creado = await crearTicketEnNotion(
-        { id, codigo: actual.codigo, asunto: actual.asunto, categoria: actual.categoria, modulo: actual.modulo, prioridad: nuevaPrioridad, ai_resumen: actual.ai_resumen },
+        { id, codigo: actual.codigo, asunto: actual.asunto, descripcion: actual.descripcion, categoria: actual.categoria, modulo: actual.modulo, prioridad: nuevaPrioridad, ai_resumen: actual.ai_resumen },
         clienteNombre,
-        agentesNombres
+        agentesNombres,
+        adjuntosRows
       );
       if (creado) notionPageId = creado;
     } catch (err) {

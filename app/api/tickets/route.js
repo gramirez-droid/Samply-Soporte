@@ -75,15 +75,28 @@ export async function POST(req) {
 
   const ticket = rows[0];
 
+  // El adjunto (si el cliente subió uno al crear el ticket) se guarda acá
+  // mismo, en la misma request — así el email de aviso ya tiene el link
+  // disponible desde el principio, sin depender de una segunda llamada
+  // que antes se hacía por separado desde el front.
+  const adjunto = body.adjunto;
+  if (adjunto?.url && adjunto?.nombre) {
+    await query(
+      `INSERT INTO tickets_adjuntos (ticket_id, nombre, url, usuario_id) VALUES ($1, $2, $3, $4)`,
+      [ticket.id, adjunto.nombre, adjunto.url, session.usuarioId]
+    ).catch((err) => console.error('[adjuntos] No se pudo guardar el adjunto del ticket nuevo:', err.message));
+  }
+
   // Dos emails al crear el ticket: uno a los admins de Samply (para que se
-  // enteren de que entró algo nuevo) y uno de confirmación al cliente.
-  // Los esperamos (con Promise.allSettled, no Promise.all) porque en
-  // serverless (Vercel) una promesa "fire and forget" puede cortarse antes
-  // de terminar si la función ya respondió — así nos asseguramos de que
-  // termine de mandarse (o de loguearse el fallo) antes de devolver la
-  // respuesta. Si alguno falla no rompe la creación del ticket.
+  // enteren de que entró algo nuevo, con la descripción completa y el
+  // adjunto si hay) y uno de confirmación al cliente. Los esperamos (con
+  // Promise.allSettled, no Promise.all) porque en serverless una promesa
+  // "fire and forget" puede cortarse antes de terminar si la función ya
+  // respondió — así nos aseguramos de que termine de mandarse (o de
+  // loguearse el fallo) antes de devolver la respuesta. Si alguno falla no
+  // rompe la creación del ticket.
   const [notifAdmin, notifCliente] = await Promise.allSettled([
-    notificarNuevoTicketAAdmins(ticket, `${session.clienteNombre} — levantado por ${session.nombre}`),
+    notificarNuevoTicketAAdmins(ticket, `${session.clienteNombre} — levantado por ${session.nombre}`, adjunto),
     confirmarTicketAlCliente(ticket, session.email),
   ]);
   if (notifAdmin.status === 'rejected') {
