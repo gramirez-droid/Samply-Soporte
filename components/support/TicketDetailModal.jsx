@@ -90,6 +90,46 @@ function RespuestasTicket({ ticketId }) {
   );
 }
 
+function AdjuntosSeccion({ ticketId }) {
+  const [adjuntos, setAdjuntos] = React.useState(null);
+
+  React.useEffect(() => {
+    let cancelado = false;
+    fetch(`/api/tickets/${ticketId}/adjuntos`)
+      .then((res) => res.json())
+      .then((data) => { if (!cancelado) setAdjuntos(data.adjuntos || []); })
+      .catch(() => { if (!cancelado) setAdjuntos([]); });
+    return () => { cancelado = true; };
+  }, [ticketId]);
+
+  if (!adjuntos || adjuntos.length === 0) return null; // sin adjuntos, no hace falta mostrar la sección
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>
+        Adjuntos
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {adjuntos.map((a) => (
+          <a
+            key={a.id}
+            href={a.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--samply-blue)' }}
+          >
+            <Icon name="download" size={14} />
+            {a.nombre}
+            <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+              — {a.usuario_nombre ? `vos (${a.usuario_nombre})` : a.agente_nombre || 'Samply Soporte'}
+            </span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function TicketDetailModal({ ticket, onClose }) {
   if (!ticket) return null;
 
@@ -155,6 +195,8 @@ export function TicketDetailModal({ ticket, onClose }) {
           Este ticket todavía no fue analizado por IA — eso se activa en la Fase 2.
         </AiInsight>
       )}
+
+      <AdjuntosSeccion ticketId={ticket.dbId} />
 
       <div style={{ marginTop: 16, marginBottom: 16 }}>
         <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>

@@ -85,13 +85,27 @@ export function TicketsScreen() {
     setCreating(true);
     setCreateError(null);
     try {
+      const { adjunto, ...ticketData } = nuevo;
       const res = await fetch('/api/tickets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nuevo),
+        body: JSON.stringify(ticketData),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo crear el ticket');
+
+      // Si el cliente ya había subido una captura antes de crear el
+      // ticket (no había id todavía), la asociamos ahora que sí lo hay.
+      // Si esto falla, no rompe la creación del ticket — solo se pierde
+      // el adjunto, que es recuperable reintentando desde el detalle.
+      if (adjunto?.url) {
+        await fetch(`/api/tickets/${data.ticket.id}/adjuntos`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(adjunto),
+        }).catch(() => {});
+      }
+
       setRows((r) => [mapTicket(data.ticket), ...r]);
       setShowNew(false);
       return true;

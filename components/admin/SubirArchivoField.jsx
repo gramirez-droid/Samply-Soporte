@@ -72,7 +72,7 @@ export function SubirArchivoField({ label, carpeta, accept, urlActual, onSubido,
         <div style={{ marginTop: 8 }}>
           <Input
             placeholder="https://drive.google.com/..."
-            value={urlActual && !urlActual.includes('/api/files/') ? urlActual : ''}
+            value={urlActual && !urlActual.includes('/api/files?key=') ? urlActual : ''}
             onChange={(e) => onUrlManual(e.target.value)}
           />
         </div>

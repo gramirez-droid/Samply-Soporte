@@ -11,13 +11,40 @@ const EMPTY_FORM = { categoria: '', modulo: '', asunto: '', desc: '', prioridad:
 
 export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
   const [form, setForm] = React.useState(EMPTY_FORM);
+  const [adjunto, setAdjunto] = React.useState(null); // { nombre, url }
+  const [subiendo, setSubiendo] = React.useState(false);
+  const [errorAdjunto, setErrorAdjunto] = React.useState(null);
+  const fileInputRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (open) setForm(EMPTY_FORM);
+    if (open) {
+      setForm(EMPTY_FORM);
+      setAdjunto(null);
+      setErrorAdjunto(null);
+    }
   }, [open]);
 
   function set(k) {
     return (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSubiendo(true);
+    setErrorAdjunto(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo subir el archivo');
+      setAdjunto({ nombre: data.nombre, url: data.url });
+    } catch (err) {
+      setErrorAdjunto(err.message);
+    } finally {
+      setSubiendo(false);
+    }
   }
 
   async function submit() {
@@ -28,8 +55,12 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
       modulo: form.modulo || MODULOS[0],
       prioridad: form.prioridad,
       descripcion: form.desc,
+      adjunto,
     });
-    if (ok) setForm(EMPTY_FORM);
+    if (ok) {
+      setForm(EMPTY_FORM);
+      setAdjunto(null);
+    }
   }
 
   return (
@@ -41,7 +72,7 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button variant="primary" icon="plus" onClick={submit} disabled={submitting || !form.asunto.trim()}>
+          <Button variant="primary" icon="plus" onClick={submit} disabled={submitting || subiendo || !form.asunto.trim()}>
             {submitting ? 'Creando...' : 'Crear ticket'}
           </Button>
         </>
@@ -87,7 +118,17 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
         <Select label="Prioridad" options={PRIORIDADES} value={form.prioridad} onChange={set('prioridad')} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>Adjuntar captura</label>
-          <input type="file" disabled title="Disponible en una fase siguiente" style={{ fontFamily: 'var(--font-sans)', fontSize: 13, height: 40 }} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,image/jpeg,image/jpg,image/png"
+            onChange={handleFile}
+            disabled={subiendo}
+            style={{ fontFamily: 'var(--font-sans)', fontSize: 13, height: 40 }}
+          />
+          {subiendo && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Subiendo...</span>}
+          {adjunto && !subiendo && <span style={{ fontSize: 12, color: 'var(--samply-green, #27AE60)' }}>✓ {adjunto.nombre}</span>}
+          {errorAdjunto && <span style={{ fontSize: 12, color: 'var(--samply-red)' }}>{errorAdjunto}</span>}
         </div>
       </div>
       <AiInsight icon="sparkles" title="Qué pasa después">

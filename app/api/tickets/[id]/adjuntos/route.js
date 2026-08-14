@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/db/client';
-import { getAgenteSessionFromRequest } from '@/lib/auth';
+import { getSessionFromRequest } from '@/lib/auth';
 
 export async function GET(req, { params }) {
-  const session = await getAgenteSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
   }
@@ -11,6 +11,13 @@ export async function GET(req, { params }) {
   const id = Number(params.id);
   if (!Number.isInteger(id)) {
     return NextResponse.json({ error: 'Id inválido' }, { status: 400 });
+  }
+
+  // Mismo criterio de ownership que el resto de la API de cliente: el
+  // ticket tiene que pertenecer a su empresa.
+  const { rows: ticketRows } = await query('SELECT id FROM tickets WHERE id = $1 AND cliente_id = $2', [id, session.clienteId]);
+  if (!ticketRows[0]) {
+    return NextResponse.json({ error: 'Ticket no encontrado' }, { status: 404 });
   }
 
   const { rows } = await query(
@@ -27,7 +34,7 @@ export async function GET(req, { params }) {
 }
 
 export async function POST(req, { params }) {
-  const session = await getAgenteSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
   }
@@ -46,24 +53,20 @@ export async function POST(req, { params }) {
 
   const nombre = (body.nombre || '').trim();
   const url = (body.url || '').trim();
-
   if (!nombre || !url) {
     return NextResponse.json({ error: 'Nombre y URL son obligatorios' }, { status: 400 });
   }
-  if (!/^https?:\/\//i.test(url)) {
-    return NextResponse.json({ error: 'La URL tiene que empezar con http:// o https://' }, { status: 400 });
-  }
 
-  const { rows: ticketRows } = await query('SELECT id FROM tickets WHERE id = $1', [id]);
+  const { rows: ticketRows } = await query('SELECT id FROM tickets WHERE id = $1 AND cliente_id = $2', [id, session.clienteId]);
   if (!ticketRows[0]) {
     return NextResponse.json({ error: 'Ticket no encontrado' }, { status: 404 });
   }
 
   const { rows } = await query(
-    `INSERT INTO tickets_adjuntos (ticket_id, nombre, url, agente_id)
+    `INSERT INTO tickets_adjuntos (ticket_id, nombre, url, usuario_id)
      VALUES ($1, $2, $3, $4)
      RETURNING id, nombre, url, created_at`,
-    [id, nombre, url, session.agenteId]
+    [id, nombre, url, session.usuarioId]
   );
 
   return NextResponse.json({ adjunto: rows[0] }, { status: 201 });

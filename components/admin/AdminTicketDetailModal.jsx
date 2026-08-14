@@ -86,6 +86,8 @@ function AdjuntosTicket({ ticketId }) {
   const [url, setUrl] = React.useState('');
   const [error, setError] = React.useState(null);
   const [guardando, setGuardando] = React.useState(false);
+  const [subiendo, setSubiendo] = React.useState(false);
+  const fileInputRef = React.useRef(null);
 
   const cargar = React.useCallback(() => {
     fetch(`/api/admin/tickets/${ticketId}/adjuntos`)
@@ -98,26 +100,54 @@ function AdjuntosTicket({ ticketId }) {
     cargar();
   }, [cargar]);
 
-  async function agregar() {
-    if (!nombre.trim() || !url.trim()) return;
-    setGuardando(true);
+  async function guardarAdjunto(nombreArchivo, urlArchivo) {
     setError(null);
     try {
       const res = await fetch(`/api/admin/tickets/${ticketId}/adjuntos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nombre, url }),
+        body: JSON.stringify({ nombre: nombreArchivo, url: urlArchivo }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo agregar el adjunto');
-      setNombre('');
-      setUrl('');
       cargar();
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  }
+
+  async function handleFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSubiendo(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('carpeta', `tickets/${ticketId}`);
+      const res = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo subir el archivo');
+      await guardarAdjunto(data.nombre, data.url);
     } catch (err) {
       setError(err.message);
     } finally {
-      setGuardando(false);
+      setSubiendo(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  }
+
+  async function agregar() {
+    if (!nombre.trim() || !url.trim()) return;
+    setGuardando(true);
+    const ok = await guardarAdjunto(nombre, url);
+    if (ok) {
+      setNombre('');
+      setUrl('');
+    }
+    setGuardando(false);
   }
 
   return (
@@ -138,22 +168,32 @@ function AdjuntosTicket({ ticketId }) {
             >
               <Icon name="download" size={14} />
               {a.nombre}
-              <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>— {a.agente_nombre || 'sin agente'}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                — {a.usuario_nombre ? `${a.usuario_nombre} (cliente)` : a.agente_nombre || 'sin agente'}
+              </span>
             </a>
           ))}
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, alignItems: 'end' }}>
-        <Input placeholder="Nombre del archivo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-        <Input placeholder="URL (Drive, etc.)" value={url} onChange={(e) => setUrl(e.target.value)} />
-        <Button variant="secondary" size="sm" onClick={agregar} disabled={guardando || !nombre.trim() || !url.trim()}>
-          {guardando ? 'Agregando...' : 'Agregar'}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf,image/jpeg,image/jpg,image/png"
+          onChange={handleFile}
+          style={{ display: 'none' }}
+        />
+        <Button variant="secondary" size="sm" icon="download" onClick={() => fileInputRef.current?.click()} disabled={subiendo}>
+          {subiendo ? 'Subiendo...' : 'Subir PDF o foto'}
+        </Button>
+        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>o</span>
+        <Input placeholder="Nombre del archivo" value={nombre} onChange={(e) => setNombre(e.target.value)} style={{ maxWidth: 160 }} />
+        <Input placeholder="Pegar un link (Drive, etc.)" value={url} onChange={(e) => setUrl(e.target.value)} style={{ maxWidth: 220 }} />
+        <Button variant="ghost" size="sm" onClick={agregar} disabled={guardando || !nombre.trim() || !url.trim()}>
+          {guardando ? 'Agregando...' : 'Agregar link'}
         </Button>
       </div>
       {error && <div style={{ marginTop: 6, fontSize: 12, color: 'var(--samply-red)' }}>{error}</div>}
-      <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-secondary)' }}>
-        Por ahora son links (Drive, etc.), no upload de archivo real — todavía no hay storage configurado.
-      </div>
     </div>
   );
 }
