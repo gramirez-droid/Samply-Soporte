@@ -20,6 +20,12 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
       setForm(EMPTY_FORM);
       setAdjunto(null);
       setErrorAdjunto(null);
+      // Sin esto, el <input type="file"> nativo se queda con la referencia
+      // del archivo elegido en el ticket anterior. Si el cliente sube una
+      // captura nueva con el MISMO nombre (ej: "Captura de pantalla.png"),
+      // el navegador no dispara onChange porque para él el value no
+      // cambió — y termina viajando el adjunto viejo en el ticket nuevo.
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }, [open]);
 
@@ -43,6 +49,10 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
       setErrorAdjunto(err.message);
     } finally {
       setSubiendo(false);
+      // Limpiamos el value siempre (éxito o error) para que el navegador
+      // vuelva a disparar onChange aunque el próximo archivo elegido tenga
+      // el mismo nombre que este.
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
@@ -59,6 +69,7 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
     if (ok) {
       setForm(EMPTY_FORM);
       setAdjunto(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
