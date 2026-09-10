@@ -68,3 +68,41 @@ export async function POST(req, { params }) {
 
   return NextResponse.json({ adjunto: rows[0] }, { status: 201 });
 }
+
+export async function DELETE(req, { params }) {
+  const session = await getAgenteSessionFromRequest(req);
+  if (!session) {
+    return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  }
+
+  const id = Number(params.id);
+  if (!Number.isInteger(id)) {
+    return NextResponse.json({ error: 'Id inválido' }, { status: 400 });
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Body inválido' }, { status: 400 });
+  }
+
+  const adjuntoId = Number(body.adjuntoId);
+  if (!Number.isInteger(adjuntoId)) {
+    return NextResponse.json({ error: 'adjuntoId inválido' }, { status: 400 });
+  }
+
+  // Solo borra el registro de tickets_adjuntos (deja de mostrarse en el
+  // ticket). No borra el blob en Netlify Blobs — si en el futuro se quiere
+  // liberar espacio también ahí, habría que agregar esa llamada acá.
+  const { rows } = await query(
+    'DELETE FROM tickets_adjuntos WHERE id = $1 AND ticket_id = $2 RETURNING id',
+    [adjuntoId, id]
+  );
+
+  if (!rows[0]) {
+    return NextResponse.json({ error: 'Adjunto no encontrado en este ticket' }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
