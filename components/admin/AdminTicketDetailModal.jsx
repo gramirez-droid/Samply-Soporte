@@ -86,6 +86,7 @@ function AdjuntosTicket({ ticketId }) {
   const [error, setError] = React.useState(null);
   const [guardando, setGuardando] = React.useState(false);
   const [subiendo, setSubiendo] = React.useState(false);
+  const [borrandoId, setBorrandoId] = React.useState(null);
   const fileInputRef = React.useRef(null);
 
   const cargar = React.useCallback(() => {
@@ -149,6 +150,26 @@ function AdjuntosTicket({ ticketId }) {
     setGuardando(false);
   }
 
+  async function borrarAdjunto(adjuntoId) {
+    if (!confirm('¿Borrar este adjunto? Deja de verse en el ticket, no se puede deshacer.')) return;
+    setBorrandoId(adjuntoId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/tickets/${ticketId}/adjuntos`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adjuntoId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo borrar el adjunto');
+      cargar();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBorrandoId(null);
+    }
+  }
+
   return (
     <div>
       {adjuntos === null ? (
@@ -158,19 +179,39 @@ function AdjuntosTicket({ ticketId }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
           {adjuntos.map((a) => (
-            <a
-              key={a.id}
-              href={a.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--samply-blue)' }}
-            >
-              <Icon name="download" size={14} />
-              {a.nombre}
-              <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-                — {a.usuario_nombre ? `${a.usuario_nombre} (cliente)` : a.agente_nombre || 'sin agente'}
-              </span>
-            </a>
+            <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <a
+                href={a.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--samply-blue)', flex: 1, minWidth: 0 }}
+              >
+                <Icon name="download" size={14} />
+                {a.nombre}
+                <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
+                  — {a.usuario_nombre ? `${a.usuario_nombre} (cliente)` : a.agente_nombre || 'sin agente'}
+                </span>
+              </a>
+              <button
+                type="button"
+                onClick={() => borrarAdjunto(a.id)}
+                disabled={borrandoId === a.id}
+                title="Borrar adjunto"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: borrandoId === a.id ? 'default' : 'pointer',
+                  color: 'var(--samply-red)',
+                  padding: 4,
+                  opacity: borrandoId === a.id ? 0.5 : 1,
+                }}
+              >
+                <Icon name="x" size={14} />
+              </button>
+            </div>
           ))}
         </div>
       )}
