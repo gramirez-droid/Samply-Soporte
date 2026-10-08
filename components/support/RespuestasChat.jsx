@@ -2,6 +2,8 @@
 import React from 'react';
 import { Button } from '@/components/ds/Button';
 import { formatFechaHora } from '@/components/support/constants';
+import { AudioRecorder, subirAudio } from './AudioRecorder';
+import { AudioMensaje } from './AudioMensaje';
 
 /**
  * Hilo de conversación tipo chat, usado tanto en el panel de staff como en
@@ -12,12 +14,15 @@ import { formatFechaHora } from '@/components/support/constants';
 export function RespuestasChat({ apiBase, ticketId, esMio, placeholderVacio, placeholderEnviar, etiquetaBoton }) {
   const [respuestas, setRespuestas] = React.useState(null);
   const [mensaje, setMensaje] = React.useState('');
+  const [audio, setAudio] = React.useState(null); // { archivo, urlLocal, duracion }
+  // El staff sube por /api/admin/upload y el cliente por /api/upload.
+  const uploadUrl = apiBase.startsWith('/api/admin') ? '/api/admin/upload' : '/api/upload';
   const [enviando, setEnviando] = React.useState(false);
   const [error, setError] = React.useState(null);
   const bottomRef = React.useRef(null);
 
   const cargar = React.useCallback(() => {
-    fetch(`${apiBase}/${ticketId}/respuestas`)
+    fetch(`${apiBase}/${ticketId}/respuestas`, { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : { respuestas: [] }))
       .then((data) => setRespuestas(data.respuestas || []))
       .catch(() => setRespuestas([]));
@@ -31,19 +36,27 @@ export function RespuestasChat({ apiBase, ticketId, esMio, placeholderVacio, pla
     bottomRef.current?.scrollIntoView({ block: 'nearest' });
   }, [respuestas]);
 
+  // Al cambiar de ticket se descarta lo que estaba a medio escribir/grabar.
+  React.useEffect(() => { setMensaje(''); setAudio(null); setError(null); setRespuestas(null); }, [ticketId]);
+
+  const hayAlgo = !!mensaje.trim() || !!audio;
+
   async function enviar() {
-    if (!mensaje.trim()) return;
+    if (!hayAlgo) return;
     setEnviando(true);
     setError(null);
     try {
+      // 1) Si hay audio, primero se sube el archivo; 2) después va el mensaje.
+      const audioSubido = audio ? await subirAudio(audio, uploadUrl) : null;
       const res = await fetch(`${apiBase}/${ticketId}/respuestas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mensaje }),
+        body: JSON.stringify({ mensaje, audio: audioSubido }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'No se pudo enviar el mensaje');
       setMensaje('');
+      setAudio(null);
       cargar();
     } catch (err) {
       setError(err.message);
@@ -77,7 +90,14 @@ export function RespuestasChat({ apiBase, ticketId, esMio, placeholderVacio, pla
                     color: mio ? '#fff' : 'var(--text-primary)',
                   }}
                 >
-                  <div style={{ fontSize: 14, lineHeight: 'var(--lh-normal)', whiteSpace: 'pre-wrap' }}>{r.mensaje}</div>
+                  {r.audio_url && (
+                    <div style={{ marginBottom: r.mensaje ? 6 : 0 }}>
+                      <AudioMensaje src={r.audio_url} duracion={r.audio_duracion_seg} sobreAzul={mio} />
+                    </div>
+                  )}
+                  {r.mensaje && (
+                    <div style={{ fontSize: 14, lineHeight: 'var(--lh-normal)', whiteSpace: 'pre-wrap' }}>{r.mensaje}</div>
+                  )}
                   <div style={{ fontSize: 11, marginTop: 4, color: mio ? 'rgba(255,255,255,0.75)' : 'var(--text-secondary)' }}>
                     {nombreAutor(r)} — {formatFechaHora(r.created_at)}
                   </div>
@@ -96,9 +116,12 @@ export function RespuestasChat({ apiBase, ticketId, esMio, placeholderVacio, pla
           placeholder={placeholderEnviar}
           style={{ fontFamily: 'var(--font-sans)', fontSize: 14, padding: '10px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid transparent', background: '#F1F5FB', resize: 'vertical', color: 'var(--text-primary)' }}
         />
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <Button variant="primary" size="sm" icon="message" onClick={enviar} disabled={enviando || !mensaje.trim()}>
-            {enviando ? 'Enviando...' : etiquetaBoton}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 260px', minWidth: 0 }}>
+            <AudioRecorder value={audio} onChange={setAudio} disabled={enviando} />
+          </div>
+          <Button variant="primary" size="sm" icon="message" onClick={enviar} disabled={enviando || !hayAlgo}>
+            {enviando ? (audio ? 'Subiendo audio...' : 'Enviando...') : etiquetaBoton}
           </Button>
         </div>
         {error && <div style={{ fontSize: 12, color: 'var(--samply-red)' }}>{error}</div>}

@@ -5,6 +5,7 @@ import { Button } from '@/components/ds/Button';
 import { Input } from '@/components/ds/Input';
 import { Select } from '@/components/ds/Select';
 import { CATEGORIAS, MODULOS, PRIORIDADES } from './constants';
+import { AudioRecorder, subirAudio } from './AudioRecorder';
 
 const EMPTY_FORM = { categoria: '', modulo: '', asunto: '', desc: '', prioridad: 'Media' };
 
@@ -14,11 +15,14 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
   const [subiendo, setSubiendo] = React.useState(false);
   const [errorAdjunto, setErrorAdjunto] = React.useState(null);
   const fileInputRef = React.useRef(null);
+  const [audio, setAudio] = React.useState(null); // { archivo, urlLocal, duracion }
+  const [subiendoAudio, setSubiendoAudio] = React.useState(false);
 
   React.useEffect(() => {
     if (open) {
       setForm(EMPTY_FORM);
       setAdjunto(null);
+      setAudio(null);
       setErrorAdjunto(null);
       // Sin esto, el <input type="file"> nativo se queda con la referencia
       // del archivo elegido en el ticket anterior. Si el cliente sube una
@@ -58,6 +62,19 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
 
   async function submit() {
     if (!form.asunto.trim()) return;
+    let audioSubido = null;
+    if (audio) {
+      setSubiendoAudio(true);
+      setErrorAdjunto(null);
+      try {
+        audioSubido = await subirAudio(audio, '/api/upload');
+      } catch (err) {
+        setErrorAdjunto(err.message);
+        setSubiendoAudio(false);
+        return;
+      }
+      setSubiendoAudio(false);
+    }
     const ok = await onCreate({
       asunto: form.asunto,
       categoria: form.categoria || CATEGORIAS[0],
@@ -65,10 +82,12 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
       prioridad: form.prioridad,
       descripcion: form.desc,
       adjunto,
+      audio: audioSubido,
     });
     if (ok) {
       setForm(EMPTY_FORM);
       setAdjunto(null);
+      setAudio(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
@@ -82,8 +101,8 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button variant="primary" icon="plus" onClick={submit} disabled={submitting || subiendo || !form.asunto.trim()}>
-            {submitting ? 'Creando...' : 'Crear ticket'}
+          <Button variant="primary" icon="plus" onClick={submit} disabled={submitting || subiendo || subiendoAudio || !form.asunto.trim()}>
+            {subiendoAudio ? 'Subiendo audio...' : submitting ? 'Creando...' : 'Crear ticket'}
           </Button>
         </>
       }
@@ -123,6 +142,10 @@ export function NewTicketModal({ open, onClose, onCreate, submitting, error }) {
             color: 'var(--text-primary)',
           }}
         />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+        <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)' }}>¿Preferís contarlo por audio? (opcional)</label>
+        <AudioRecorder value={audio} onChange={setAudio} disabled={submitting || subiendoAudio} />
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
         <Select label="Prioridad" options={PRIORIDADES} value={form.prioridad} onChange={set('prioridad')} />

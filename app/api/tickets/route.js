@@ -3,6 +3,7 @@ import { query } from '@/db/client';
 import { getSessionFromRequest } from '@/lib/auth';
 import { cerrarTicketsVencidos } from '@/lib/tickets';
 import { notificarNuevoTicketAAdmins, confirmarTicketAlCliente } from '@/lib/email';
+import { validarContenidoRespuesta, formatDuracion } from '@/lib/respuestas';
 
 const CATEGORIAS = ['Bug / error', 'Consulta funcional', 'Integración (ERP)', 'Facturación', 'Capacitación', 'Solicitud de mejora'];
 const MODULOS = ['App móvil (Preventa)', 'Televentas', 'B2B eCommerce', 'Inventarios', 'Facturación', 'Reportería / KPIs'];
@@ -63,6 +64,14 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Prioridad inválida' }, { status: 400 });
   }
 
+  // Audio opcional: si viene, tiene que ser un audio válido de nuestro storage.
+  let audio = null;
+  if (body.audio) {
+    const v = validarContenidoRespuesta({ audio: body.audio });
+    if (!v.ok) return NextResponse.json({ error: v.error }, { status: 400 });
+    audio = { url: v.audioUrl, duracion: v.audioDuracion };
+  }
+
   const { rows: codeRows } = await query(`SELECT 'TCK-' || nextval('ticket_codigo_seq') AS codigo`);
   const codigo = codeRows[0].codigo;
 
@@ -87,6 +96,16 @@ export async function POST(req) {
     ).catch((err) => console.error('[adjuntos] No se pudo guardar el adjunto del ticket nuevo:', err.message));
   }
 
+  // El audio del alta queda como PRIMER mensaje de la conversación (del
+  // cliente), así se escucha en el mismo hilo donde después se responde.
+  if (audio) {
+    await query(
+      `INSERT INTO tickets_respuestas (ticket_id, usuario_id, mensaje, audio_url, audio_duracion_seg)
+       VALUES ($1, $2, NULL, $3, $4)`,
+      [ticket.id, session.usuarioId, audio.url, audio.duracion]
+    ).catch((err) => console.error('[audio] No se pudo guardar el audio del ticket nuevo:', err.message));
+  }
+
   // Dos emails al crear el ticket: uno a los admins de Samply (para que se
   // enteren de que entró algo nuevo, con la descripción completa y el
   // adjunto si hay) y uno de confirmación al cliente. Los esperamos (con
@@ -96,7 +115,7 @@ export async function POST(req) {
   // loguearse el fallo) antes de devolver la respuesta. Si alguno falla no
   // rompe la creación del ticket.
   const [notifAdmin, notifCliente] = await Promise.allSettled([
-    notificarNuevoTicketAAdmins(ticket, `${session.clienteNombre} — levantado por ${session.nombre}`, adjunto),
+    notificarNuevoTicketAAdmins(ticket, `${session.clienteNombre} — levantado por ${session.nombre}`, adjunto, audio ? (audio.duracion != null ? formatDuracion(audio.duracion) : true) : null),
     confirmarTicketAlCliente(ticket, session.email),
   ]);
   if (notifAdmin.status === 'rejected') {

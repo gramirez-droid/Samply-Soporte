@@ -68,7 +68,15 @@ export async function PATCH(req, { params }) {
       );
       const agentesNombres = agentesRows.map((r) => r.nombre);
       const { rows: adjuntosRows } = await query(
-        `SELECT nombre, url FROM tickets_adjuntos WHERE ticket_id = $1 ORDER BY created_at`,
+        `SELECT nombre, url FROM tickets_adjuntos WHERE ticket_id = $1
+         UNION ALL
+         SELECT '🎤 Audio de ' || COALESCE(a.nombre, uc.nombre, 'alguien') ||
+                COALESCE(' (' || (r.audio_duracion_seg / 60) || ':' || LPAD((r.audio_duracion_seg % 60)::text, 2, '0') || ')', ''),
+                r.audio_url
+         FROM tickets_respuestas r
+         LEFT JOIN agentes a ON a.id = r.agente_id
+         LEFT JOIN usuarios_cliente uc ON uc.id = r.usuario_id
+         WHERE r.ticket_id = $1 AND r.audio_url IS NOT NULL`,
         [id]
       );
       const creado = await crearTicketEnNotion(

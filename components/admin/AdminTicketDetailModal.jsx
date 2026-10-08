@@ -89,12 +89,21 @@ function AdjuntosTicket({ ticketId }) {
   const [borrandoId, setBorrandoId] = React.useState(null);
   const fileInputRef = React.useRef(null);
 
+  // Cada carga tiene un número; solo la última puede escribir el estado.
+  // Así, si pasás rápido de un ticket a otro, la respuesta lenta del ticket
+  // anterior no pisa la lista del ticket que estás mirando.
+  const cargaActual = React.useRef(0);
   const cargar = React.useCallback(() => {
-    fetch(`/api/admin/tickets/${ticketId}/adjuntos`)
+    const n = ++cargaActual.current;
+    fetch(`/api/admin/tickets/${ticketId}/adjuntos`, { cache: 'no-store' })
       .then((res) => res.json())
-      .then((data) => setAdjuntos(data.adjuntos || []))
-      .catch(() => setAdjuntos([]));
+      .then((data) => { if (n === cargaActual.current) setAdjuntos(data.adjuntos || []); })
+      .catch(() => { if (n === cargaActual.current) setAdjuntos([]); });
   }, [ticketId]);
+
+  // Al cambiar de ticket, vaciamos la lista ("Cargando...") en vez de seguir
+  // mostrando la del ticket anterior mientras llega la nueva.
+  React.useEffect(() => { setAdjuntos(null); }, [ticketId]);
 
   React.useEffect(() => {
     cargar();

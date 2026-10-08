@@ -94,7 +94,8 @@ function AdjuntosSeccion({ ticketId }) {
 
   React.useEffect(() => {
     let cancelado = false;
-    fetch(`/api/tickets/${ticketId}/adjuntos`)
+    setAdjuntos(null);
+    fetch(`/api/tickets/${ticketId}/adjuntos`, { cache: 'no-store' })
       .then((res) => res.json())
       .then((data) => { if (!cancelado) setAdjuntos(data.adjuntos || []); })
       .catch(() => { if (!cancelado) setAdjuntos([]); });

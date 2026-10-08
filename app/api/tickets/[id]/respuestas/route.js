@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { query } from '@/db/client';
 import { getSessionFromRequest } from '@/lib/auth';
 import { notificarRespuestaClienteAAdmins } from '@/lib/email';
+import { RESPUESTA_SELECT, validarContenidoRespuesta, textoParaEmail } from '@/lib/respuestas';
 
 export async function GET(req, { params }) {
   const session = await getSessionFromRequest(req);
@@ -26,7 +27,7 @@ export async function GET(req, { params }) {
   }
 
   const { rows } = await query(
-    `SELECT r.id, r.mensaje, r.created_at, a.nombre AS agente_nombre, uc.nombre AS usuario_nombre
+    `SELECT ${RESPUESTA_SELECT}
      FROM tickets_respuestas r
      LEFT JOIN agentes a ON a.id = r.agente_id
      LEFT JOIN usuarios_cliente uc ON uc.id = r.usuario_id
@@ -56,10 +57,11 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: 'Body inválido' }, { status: 400 });
   }
 
-  const mensaje = (body.mensaje || '').trim();
-  if (!mensaje) {
-    return NextResponse.json({ error: 'El mensaje no puede estar vacío' }, { status: 400 });
+  const contenido = validarContenidoRespuesta(body);
+  if (!contenido.ok) {
+    return NextResponse.json({ error: contenido.error }, { status: 400 });
   }
+  const { mensaje, audioUrl, audioDuracion } = contenido;
 
   const { rows: ticketRows } = await query(
     `SELECT id, codigo, asunto, estado FROM tickets WHERE id = $1 AND cliente_id = $2`,
@@ -71,10 +73,10 @@ export async function POST(req, { params }) {
   }
 
   const { rows } = await query(
-    `INSERT INTO tickets_respuestas (ticket_id, usuario_id, mensaje)
-     VALUES ($1, $2, $3)
-     RETURNING id, mensaje, created_at`,
-    [id, session.usuarioId, mensaje]
+    `INSERT INTO tickets_respuestas (ticket_id, usuario_id, mensaje, audio_url, audio_duracion_seg)
+     VALUES ($1, $2, $3, $4, $5)
+     RETURNING id, mensaje, audio_url, audio_duracion_seg, created_at`,
+    [id, session.usuarioId, mensaje, audioUrl, audioDuracion]
   );
 
   const respuesta = { ...rows[0], agente_nombre: null, usuario_nombre: session.nombre };
@@ -91,7 +93,7 @@ export async function POST(req, { params }) {
     );
   }
 
-  const notif = await notificarRespuestaClienteAAdmins(ticket, session.clienteNombre, session.nombre, mensaje).catch((err) => ({
+  const notif = await notificarRespuestaClienteAAdmins(ticket, session.clienteNombre, session.nombre, textoParaEmail(mensaje, audioDuracion, !!audioUrl)).catch((err) => ({
     enviado: false,
     motivo: err.message,
   }));
