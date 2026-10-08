@@ -19,10 +19,12 @@ para las próximas iteraciones.
    - `AUTH_SECRET`: generar con `openssl rand -base64 32`
    - `ANTHROPIC_API_KEY` y las de Notion quedan para Fase 2 y 3, no hacen falta todavía
 
-3. **Crear las tablas**
+3. **Crear / actualizar las tablas**
    ```bash
    npm run db:migrate
    ```
+   Aplica las migraciones pendientes de `db/migrations/` (ver sección
+   "Migraciones" más abajo). En Netlify esto corre solo en cada build.
 
 4. **(Opcional) Crear un cliente demo para probar el login**
    ```bash
@@ -44,6 +46,26 @@ para las próximas iteraciones.
    npm run dev
    ```
    Entrá a `http://localhost:3000` — te va a redirigir a `/login`.
+
+## Migraciones (base de datos)
+
+El schema se versiona en `db/migrations/`, un archivo `.sql` por cambio,
+numerados en orden: `0001_baseline.sql`, `0002_limpieza_legacy.sql`, etc.
+La tabla `schema_migrations` guarda cuáles ya se aplicaron.
+
+- **Se aplican solas en cada deploy**: el script `build` corre
+  `db/migrate.mjs` antes de `next build`. Ya no hace falta pegar SQL a
+  mano en Neon antes de subir código.
+- **Cada migración es atómica**: si falla, se hace rollback completo y el
+  deploy se frena (Netlify sigue sirviendo la versión anterior).
+- **Una migración aplicada no se edita nunca.** Para cambiar algo, se crea
+  el archivo siguiente (`0003_...sql`).
+- **Solo estructura en lo posible.** Si una migración necesita tocar datos,
+  que sea un cambio de una sola vez, nunca algo que "re-sincronice" en cada
+  corrida (eso era lo que hacía el viejo `schema.sql`: resucitaba usuarios
+  borrados y reasignaba tickets).
+- En Netlify, `DATABASE_URL` tiene que estar disponible en el scope
+  **Builds** (además de Functions), si no el build falla al migrar.
 
 ## Qué quedó armado
 
