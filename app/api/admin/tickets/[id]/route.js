@@ -76,7 +76,10 @@ export async function PATCH(req, { params }) {
          FROM tickets_respuestas r
          LEFT JOIN agentes a ON a.id = r.agente_id
          LEFT JOIN usuarios_cliente uc ON uc.id = r.usuario_id
-         WHERE r.ticket_id = $1 AND r.audio_url IS NOT NULL`,
+         WHERE r.ticket_id = $1 AND r.audio_url IS NOT NULL
+         UNION ALL
+         SELECT r.adjunto_nombre, r.adjunto_url FROM tickets_respuestas r
+         WHERE r.ticket_id = $1 AND r.adjunto_url IS NOT NULL`,
         [id]
       );
       const creado = await crearTicketEnNotion(
@@ -107,9 +110,9 @@ export async function PATCH(req, { params }) {
   }
   for (const [campo, valorAnterior, valorNuevo] of cambios) {
     await query(
-      `INSERT INTO tickets_historial (ticket_id, campo, valor_anterior, valor_nuevo)
-       VALUES ($1, $2, $3, $4)`,
-      [id, campo, valorAnterior, valorNuevo]
+      `INSERT INTO tickets_historial (ticket_id, campo, valor_anterior, valor_nuevo, agente_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [id, campo, valorAnterior, valorNuevo, session.agenteId]
     );
   }
 

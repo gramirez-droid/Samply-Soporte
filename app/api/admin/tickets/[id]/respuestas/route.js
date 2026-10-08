@@ -50,7 +50,7 @@ export async function POST(req, { params }) {
   if (!contenido.ok) {
     return NextResponse.json({ error: contenido.error }, { status: 400 });
   }
-  const { mensaje, audioUrl, audioDuracion } = contenido;
+  const { mensaje, audioUrl, audioDuracion, adjuntoUrl, adjuntoNombre } = contenido;
 
   // El email del cliente vive en usuarios_cliente (no en clientes) — le
   // avisamos puntualmente a quien levantó ESTE ticket, no a toda la empresa.
@@ -67,10 +67,10 @@ export async function POST(req, { params }) {
   }
 
   const { rows } = await query(
-    `INSERT INTO tickets_respuestas (ticket_id, agente_id, mensaje, audio_url, audio_duracion_seg)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, mensaje, audio_url, audio_duracion_seg, created_at`,
-    [id, session.agenteId, mensaje, audioUrl, audioDuracion]
+    `INSERT INTO tickets_respuestas (ticket_id, agente_id, mensaje, audio_url, audio_duracion_seg, adjunto_url, adjunto_nombre)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, mensaje, audio_url, audio_duracion_seg, adjunto_url, adjunto_nombre, created_at`,
+    [id, session.agenteId, mensaje, audioUrl, audioDuracion, adjuntoUrl, adjuntoNombre]
   );
 
   const respuesta = { ...rows[0], agente_nombre: session.nombre, usuario_nombre: null };
@@ -79,7 +79,7 @@ export async function POST(req, { params }) {
   // que no se corte a mitad de camino en serverless, pero si falla no
   // rompe la creación de la respuesta.
   if (ticket.usuario_email) {
-    const notif = await notificarRespuestaAlCliente(ticket, ticket.usuario_email, textoParaEmail(mensaje, audioDuracion, !!audioUrl), session.nombre).catch((err) => ({
+    const notif = await notificarRespuestaAlCliente(ticket, ticket.usuario_email, textoParaEmail(mensaje, audioDuracion, !!audioUrl, adjuntoNombre), session.nombre).catch((err) => ({
       enviado: false,
       motivo: err.message,
     }));

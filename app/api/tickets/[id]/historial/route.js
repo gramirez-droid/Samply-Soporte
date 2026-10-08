@@ -24,10 +24,11 @@ export async function GET(req, { params }) {
   }
 
   const { rows } = await query(
-    `SELECT id, campo, valor_anterior, valor_nuevo, changed_at
-     FROM tickets_historial
-     WHERE ticket_id = $1
-     ORDER BY changed_at ASC`,
+    `SELECT h.id, h.campo, h.valor_anterior, h.valor_nuevo, h.changed_at, a.nombre AS autor_nombre
+     FROM tickets_historial h
+     LEFT JOIN agentes a ON a.id = h.agente_id
+     WHERE h.ticket_id = $1
+     ORDER BY h.changed_at ASC`,
     [id]
   );
 

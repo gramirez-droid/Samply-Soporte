@@ -61,7 +61,7 @@ export async function POST(req, { params }) {
   if (!contenido.ok) {
     return NextResponse.json({ error: contenido.error }, { status: 400 });
   }
-  const { mensaje, audioUrl, audioDuracion } = contenido;
+  const { mensaje, audioUrl, audioDuracion, adjuntoUrl, adjuntoNombre } = contenido;
 
   const { rows: ticketRows } = await query(
     `SELECT id, codigo, asunto, estado FROM tickets WHERE id = $1 AND cliente_id = $2`,
@@ -73,10 +73,10 @@ export async function POST(req, { params }) {
   }
 
   const { rows } = await query(
-    `INSERT INTO tickets_respuestas (ticket_id, usuario_id, mensaje, audio_url, audio_duracion_seg)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, mensaje, audio_url, audio_duracion_seg, created_at`,
-    [id, session.usuarioId, mensaje, audioUrl, audioDuracion]
+    `INSERT INTO tickets_respuestas (ticket_id, usuario_id, mensaje, audio_url, audio_duracion_seg, adjunto_url, adjunto_nombre)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING id, mensaje, audio_url, audio_duracion_seg, adjunto_url, adjunto_nombre, created_at`,
+    [id, session.usuarioId, mensaje, audioUrl, audioDuracion, adjuntoUrl, adjuntoNombre]
   );
 
   const respuesta = { ...rows[0], agente_nombre: null, usuario_nombre: session.nombre };
@@ -93,7 +93,7 @@ export async function POST(req, { params }) {
     );
   }
 
-  const notif = await notificarRespuestaClienteAAdmins(ticket, session.clienteNombre, session.nombre, textoParaEmail(mensaje, audioDuracion, !!audioUrl)).catch((err) => ({
+  const notif = await notificarRespuestaClienteAAdmins(ticket, session.clienteNombre, session.nombre, textoParaEmail(mensaje, audioDuracion, !!audioUrl, adjuntoNombre)).catch((err) => ({
     enviado: false,
     motivo: err.message,
   }));

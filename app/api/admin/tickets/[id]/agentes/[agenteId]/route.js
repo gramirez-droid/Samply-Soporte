@@ -25,9 +25,9 @@ export async function DELETE(req, { params }) {
 
   if (rowCount > 0) {
     await query(
-      `INSERT INTO tickets_historial (ticket_id, campo, valor_anterior, valor_nuevo)
-       VALUES ($1, 'agente', $2, 'Quitado')`,
-      [id, nombreAgente]
+      `INSERT INTO tickets_historial (ticket_id, campo, valor_anterior, valor_nuevo, agente_id)
+       VALUES ($1, 'agente', $2, 'Quitado', $3)`,
+      [id, nombreAgente, session.agenteId]
     );
   }
 

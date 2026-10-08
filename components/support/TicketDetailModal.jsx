@@ -1,208 +1,86 @@
 'use client';
 import React from 'react';
-import { Modal } from '@/components/ds/Modal';
-import { Button } from '@/components/ds/Button';
-import { Icon } from '@/components/ds/Icon';
-import { stateBadge, priorityBadge } from './badges';
-import { slaEstado, formatDuracion, formatFechaHora, TTO_LIMITE_HORAS, TTR_LIMITE_HORAS } from './constants';
-import { RespuestasChat } from './RespuestasChat';
+import { stateBadge } from './badges';
+import { slaEstado, formatDuracion, formatFechaHora, TTO_LIMITE_HORAS } from './constants';
+import { TicketDetalle, Bloque, ArchivosLista } from './ticket/TicketDetalle';
+import { Conversacion } from './ticket/Conversacion';
+import { useTicketHilo, archivosDelTicket, useAngosto } from './ticket/hilo';
 
-const CAMPO_LABEL = { estado: 'Estado', prioridad: 'Prioridad' };
+// Qué significa cada estado, contado para el cliente (no en jerga de soporte).
+const ESTADO_CLIENTE = {
+  'Nuevo': { titulo: 'Recibimos tu ticket', texto: 'En breve alguien del equipo lo va a tomar.', fondo: 'var(--samply-blue-50)' },
+  'Asignado': { titulo: 'Tu ticket ya tiene responsable', texto: 'Lo vamos a revisar y te escribimos por acá.', fondo: 'var(--samply-blue-50)' },
+  'En progreso': { titulo: 'Estamos trabajando en tu caso', texto: 'Te avisamos por mail cada vez que te respondamos.', fondo: 'var(--samply-blue-50)' },
+  'Esperando cliente': { titulo: 'Necesitamos tu respuesta', texto: 'Respondé en la conversación para que podamos seguir.', fondo: 'var(--samply-amber-50)' },
+  'Resuelto': { titulo: 'Lo dimos por resuelto', texto: 'Si algo sigue fallando, escribinos en la conversación.', fondo: 'var(--samply-green-50)' },
+  'Cerrado': { titulo: 'Ticket cerrado', texto: 'Si el problema vuelve, creá un ticket nuevo.', fondo: 'var(--color-surface-2)' },
+};
 
-
-function SlaMetric({ titulo, limiteHoras, sla, etiquetaHecho, etiquetaEnCurso }) {
-  const color = sla.cumplido ? 'var(--samply-green)' : 'var(--samply-red)';
-  const texto = sla.abierto
-    ? `${formatDuracion(sla.horas)} transcurridas — ${etiquetaEnCurso}`
-    : `${formatDuracion(sla.horas)} — ${etiquetaHecho}`;
+function Dato({ label, children }) {
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
-        {titulo} <span style={{ fontWeight: 400 }}>(máx. {limiteHoras === 24 ? '1 día' : `${Math.round(limiteHoras / 24)} días`})</span>
+      <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 13 }}>{children}</div>
+    </div>
+  );
+}
+
+function Contenido({ ticket, onClose }) {
+  const angosto = useAngosto();
+  const hilo = useTicketHilo('/api/tickets', ticket.dbId);
+  const archivos = hilo.cargando ? null : archivosDelTicket(hilo.adjuntos, hilo.respuestas);
+  const estado = ESTADO_CLIENTE[ticket.estado] || ESTADO_CLIENTE['Nuevo'];
+  const tto = slaEstado(ticket.fechaCreacionRaw, ticket.primeraRespuestaRaw, TTO_LIMITE_HORAS);
+  const agentes = ticket.agentes || [];
+
+  const lateral = (
+    <>
+      <div style={{ padding: 14, borderRadius: 8, background: estado.fondo }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{estado.titulo}</div>
+        <div style={{ fontSize: 13, lineHeight: 1.45, marginTop: 4, color: 'var(--samply-navy-700)' }}>{estado.texto}</div>
       </div>
-      <div style={{ fontSize: 14, marginTop: 2, color, fontWeight: 600 }}>{texto}</div>
-    </div>
+
+      <Bloque titulo="Te atiende">
+        <div style={{ fontSize: 14 }}>{agentes.length ? agentes.map((a) => a.nombre).join(', ') : 'Todavía nadie, ya lo asignamos'}</div>
+      </Bloque>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '12px 10px' }}>
+        <Dato label="Categoría">{ticket.categoria}</Dato>
+        <Dato label="Módulo">{ticket.modulo}</Dato>
+        <Dato label="Prioridad">{ticket.prioridad}</Dato>
+        <Dato label="Primera respuesta">{ticket.primeraRespuestaRaw ? formatDuracion(tto.horas) : 'Pendiente'}</Dato>
+      </div>
+
+      <Bloque titulo="Archivos" extra={archivos ? archivos.length : null}>
+        <ArchivosLista archivos={archivos} />
+      </Bloque>
+    </>
   );
-}
-
-function HistorialTicket({ ticketId }) {
-  const [historial, setHistorial] = React.useState(null);
-  const [error, setError] = React.useState(null);
-
-  React.useEffect(() => {
-    let cancelado = false;
-    setHistorial(null);
-    setError(null);
-    fetch(`/api/tickets/${ticketId}/historial`)
-      .then((res) => {
-        if (!res.ok) throw new Error('No se pudo cargar el historial');
-        return res.json();
-      })
-      .then((data) => {
-        if (!cancelado) setHistorial(data.historial);
-      })
-      .catch((err) => {
-        if (!cancelado) setError(err.message);
-      });
-    return () => {
-      cancelado = true;
-    };
-  }, [ticketId]);
-
-  if (error) {
-    return <div style={{ fontSize: 13, color: 'var(--samply-red)' }}>{error}</div>;
-  }
-  if (historial === null) {
-    return <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Cargando historial...</div>;
-  }
-  if (historial.length === 0) {
-    return <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Todavía no hubo cambios de estado ni de prioridad.</div>;
-  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {historial.map((h) => (
-        <div key={h.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13 }}>
-          <Icon name="clock" size={14} color="var(--text-secondary)" style={{ marginTop: 2 }} />
-          <div>
-            <strong>{CAMPO_LABEL[h.campo] || h.campo}</strong>{' '}
-            {h.valor_anterior ? <>cambió de <strong>{h.valor_anterior}</strong> a</> : 'se estableció en'}{' '}
-            <strong>{h.valor_nuevo}</strong>
-            <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{formatFechaHora(h.changed_at)}</div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RespuestasTicket({ ticketId }) {
-  return (
-    <RespuestasChat
-      apiBase="/api/tickets"
-      ticketId={ticketId}
-      esMio={(r) => !!r.usuario_nombre}
-      placeholderVacio="Todavía no hay conversación en este ticket."
-      placeholderEnviar="Escribí tu mensaje para el equipo de soporte..."
-      etiquetaBoton="Enviar"
+    <TicketDetalle
+      ticket={ticket}
+      onClose={onClose}
+      badges={stateBadge(ticket.estado)}
+      meta={[`Creado el ${formatFechaHora(ticket.fechaCreacionRaw)}`]}
+      etiquetaDescripcion="Tu descripción del problema"
+      conversacion={
+        <Conversacion
+          ticket={ticket}
+          hilo={hilo}
+          apiBase="/api/tickets"
+          vista="cliente"
+          textoCreado="Se creó el ticket"
+          placeholder="Escribile a soporte…"
+          angosto={angosto}
+        />
+      }
+      lateral={lateral}
     />
-  );
-}
-
-function AdjuntosSeccion({ ticketId }) {
-  const [adjuntos, setAdjuntos] = React.useState(null);
-
-  React.useEffect(() => {
-    let cancelado = false;
-    setAdjuntos(null);
-    fetch(`/api/tickets/${ticketId}/adjuntos`, { cache: 'no-store' })
-      .then((res) => res.json())
-      .then((data) => { if (!cancelado) setAdjuntos(data.adjuntos || []); })
-      .catch(() => { if (!cancelado) setAdjuntos([]); });
-    return () => { cancelado = true; };
-  }, [ticketId]);
-
-  if (!adjuntos || adjuntos.length === 0) return null; // sin adjuntos, no hace falta mostrar la sección
-
-  return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>
-        Adjuntos
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {adjuntos.map((a) => (
-          <a
-            key={a.id}
-            href={a.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--samply-blue)' }}
-          >
-            <Icon name="download" size={14} />
-            {a.nombre}
-            <span style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
-              — {a.usuario_nombre ? `vos (${a.usuario_nombre})` : a.agente_nombre || 'Samply Soporte'}
-            </span>
-          </a>
-        ))}
-      </div>
-    </div>
   );
 }
 
 export function TicketDetailModal({ ticket, onClose }) {
   if (!ticket) return null;
-
-  const rows = [
-    ['Categoría', ticket.categoria],
-    ['Módulo afectado', ticket.modulo],
-    ['Prioridad', priorityBadge(ticket.prioridad)],
-    ['Estado', stateBadge(ticket.estado)],
-    ['Fecha', ticket.fecha],
-  ];
-
-  // SLA — TTO (toma, máx. 1 día) y TTR (resolución, máx. 7 días), estilo iTop.
-  // Se muestran siempre, incluso si el ticket sigue abierto: si ya se pasó
-  // el umbral sin resolver, se marca vencido igual (no espera a que se cierre).
-  const slaTTO = slaEstado(ticket.fechaCreacionRaw, ticket.primeraRespuestaRaw, TTO_LIMITE_HORAS);
-  const slaTTR = slaEstado(ticket.fechaCreacionRaw, ticket.resueltoRaw, TTR_LIMITE_HORAS);
-
-  return (
-    <Modal
-      open={!!ticket}
-      onClose={onClose}
-      width={620}
-      title={`Detalle de ticket · ${ticket.id}`}
-      footer={<Button variant="ghost" onClick={onClose}>Cerrar</Button>}
-    >
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 16 }}>
-        {rows.map(([k, v]) => (
-          <div key={k}>
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{k}</div>
-            <div style={{ fontSize: 14, marginTop: 4 }}>{v}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: 24, marginBottom: 16, padding: '10px 12px', background: 'var(--color-surface-2)', borderRadius: 'var(--radius-sm)' }}>
-        <SlaMetric
-          titulo="Toma de ticket"
-          limiteHoras={TTO_LIMITE_HORAS}
-          sla={slaTTO}
-          etiquetaHecho={slaTTO.cumplido ? 'a tiempo' : 'fuera de plazo'}
-          etiquetaEnCurso={slaTTO.cumplido ? 'todavía en plazo' : 'vencido, sin tomar'}
-        />
-        <SlaMetric
-          titulo="Resolución"
-          limiteHoras={TTR_LIMITE_HORAS}
-          sla={slaTTR}
-          etiquetaHecho={slaTTR.cumplido ? 'a tiempo' : 'fuera de plazo'}
-          etiquetaEnCurso={slaTTR.cumplido ? 'todavía en plazo' : 'vencido, sin resolver'}
-        />
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 4 }}>
-          Descripción del cliente
-        </div>
-        <div style={{ fontSize: 14, lineHeight: 'var(--lh-normal)' }}>{ticket.desc || 'Sin descripción.'}</div>
-      </div>
-
-      <AdjuntosSeccion ticketId={ticket.dbId} />
-
-      <div style={{ marginTop: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>
-          Conversación con soporte
-        </div>
-        <RespuestasTicket ticketId={ticket.dbId} />
-      </div>
-
-      <div style={{ marginTop: 16 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 'var(--ls-label)', textTransform: 'uppercase', color: 'var(--text-secondary)', marginBottom: 8 }}>
-          Historial de cambios
-        </div>
-        <HistorialTicket ticketId={ticket.dbId} />
-      </div>
-    </Modal>
-  );
+  return <Contenido ticket={ticket} onClose={onClose} />;
 }

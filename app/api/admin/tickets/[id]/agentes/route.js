@@ -46,9 +46,9 @@ export async function POST(req, { params }) {
 
   if (rowCount > 0) {
     await query(
-      `INSERT INTO tickets_historial (ticket_id, campo, valor_anterior, valor_nuevo)
-       VALUES ($1, 'agente', NULL, $2)`,
-      [id, agente.nombre]
+      `INSERT INTO tickets_historial (ticket_id, campo, valor_anterior, valor_nuevo, agente_id)
+       VALUES ($1, 'agente', NULL, $2, $3)`,
+      [id, agente.nombre, session.agenteId]
     );
   }
 

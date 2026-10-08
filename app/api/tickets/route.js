@@ -11,7 +11,13 @@ const PRIORIDADES = ['Baja', 'Media', 'Alta', 'Urgente'];
 
 const SELECT_FIELDS = `
   id, codigo, asunto, descripcion, categoria, modulo, prioridad, estado,
-  fecha_creacion, ai_resumen, notion_page_id, primera_respuesta_en, resuelto_en
+  fecha_creacion, ai_resumen, notion_page_id, primera_respuesta_en, resuelto_en,
+  COALESCE(
+    (SELECT json_agg(json_build_object('id', a.id, 'nombre', a.nombre) ORDER BY a.nombre)
+     FROM tickets_agentes ta JOIN agentes a ON a.id = ta.agente_id
+     WHERE ta.ticket_id = tickets.id),
+    '[]'::json
+  ) AS agentes
 `;
 
 export async function GET(req) {

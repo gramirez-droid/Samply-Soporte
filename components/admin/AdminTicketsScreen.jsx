@@ -21,7 +21,11 @@ import {
 } from '@/components/support/constants';
 
 export function AdminTicketsScreen() {
-  const [tab, setTab] = React.useState('todos');
+  // Arranca en null: apenas llegan los tickets elegimos la primera pestaña
+  // que tenga algo para atender (Sin asignar → Abiertos → Todos).
+  const [tab, setTabState] = React.useState(null);
+  const tabElegidaPorUsuario = React.useRef(false);
+  const setTab = React.useCallback((t) => { tabElegidaPorUsuario.current = true; setTabState(t); }, []);
   const [detail, setDetail] = React.useState(null);
   const [rows, setRows] = React.useState([]);
   const [agentes, setAgentes] = React.useState([]);
@@ -76,6 +80,13 @@ export function AdminTicketsScreen() {
   const abiertos = rows.filter((t) => !['Resuelto', 'Cerrado'].includes(t.estado));
   const sinAsignar = rows.filter((t) => t.agentes.length === 0 && !['Resuelto', 'Cerrado'].includes(t.estado));
   const resueltos = rows.filter((t) => t.estado === 'Resuelto');
+
+  // Pestaña inicial inteligente: solo la primera vez que cargan los tickets
+  // y mientras el usuario no haya tocado ninguna pestaña.
+  React.useEffect(() => {
+    if (loading || tabElegidaPorUsuario.current || tab !== null) return;
+    setTabState(sinAsignar.length > 0 ? 'sin_asignar' : abiertos.length > 0 ? 'abiertos' : 'todos');
+  }, [loading, tab, sinAsignar.length, abiertos.length]);
   const cumplimientoSLA = porcentajeCumplimientoSLA(rows);
 
   const filtered = rows.filter((t) => {
@@ -216,13 +227,14 @@ export function AdminTicketsScreen() {
 
         <div style={{ padding: '0 16px' }}>
           <Tabs
-            value={tab}
+            value={tab ?? 'sin_asignar'}
             onChange={setTab}
             tabs={[
-              { id: 'todos', label: 'Todos', count: rows.length },
-              { id: 'abiertos', label: 'Abiertos', count: abiertos.length },
+              // Orden de trabajo: primero lo que nadie tomó, después lo abierto.
               { id: 'sin_asignar', label: 'Sin asignar', count: sinAsignar.length },
+              { id: 'abiertos', label: 'Abiertos', count: abiertos.length },
               { id: 'resueltos', label: 'Resueltos', count: resueltos.length },
+              { id: 'todos', label: 'Todos', count: rows.length },
             ]}
           />
         </div>

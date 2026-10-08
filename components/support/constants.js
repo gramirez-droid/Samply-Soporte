@@ -126,6 +126,7 @@ export function mapTicket(t) {
     fechaCreacionRaw: t.fecha_creacion,
     primeraRespuestaRaw: t.primera_respuesta_en,
     resueltoRaw: t.resuelto_en,
+    agentes: t.agentes || [], // [{ id, nombre }] — quién atiende el ticket
   };
 }
 
